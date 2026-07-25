@@ -1,0 +1,6 @@
+chromadb
+pymongo
+python-dotenv
+ollama
+fastapi
+pydantic
