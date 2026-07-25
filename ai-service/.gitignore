@@ -20,3 +20,10 @@ env
 *.njsproj
 *.sln
 *.sw?
+
+
+.chroma_store
+chorma_store/*
+
+__pychache__/*
+./__pychache__
