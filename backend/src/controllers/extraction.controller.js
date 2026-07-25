@@ -3,29 +3,42 @@ import { askOpenRouter as askOllama } from "../utils/openrouter.js";
 import Extraction from "../models/Extraction.js";
 import Document from "../models/Document.js";
 
-function chunkText(text, chunkSize = 3000, overlap = 200) {
-  const chunks = [];
-  let start = 0;
-  while (start < text.length) {
-    chunks.push(text.slice(start, start + chunkSize));
-    start += chunkSize - overlap;
-  }
-  return chunks;
-}
-
-function buildPrompt(chunkText) {
+function buildPrompt(text) {
   return `
-Extract the following from this RFP text and return ONLY valid JSON, no other text:
+Extract the following structured information from this RFP/tender document.
+Return ONLY valid JSON matching this exact shape, no other text, no markdown code fences:
+
 {
-  "mandatoryRequirements": ["..."],
-  "submissionDeadline": "...",
-  "evaluationCriteria": ["..."]
+  "title": "",
+  "organization": "",
+  "rfpNumber": "",
+  "country": "",
+  "submissionDeadline": "",
+  "projectDuration": "",
+  "contractType": "",
+  "mandatoryRequirements": [],
+  "technicalRequirements": [],
+  "financialRequirements": [],
+  "deliverables": [],
+  "requiredDocuments": [],
+  "evaluationCriteria": [],
+  "contact": {
+    "email": "",
+    "address": ""
+  }
 }
 
-If a field is not present in this text, return an empty array or empty string for it — do not guess.
+Rules:
+- mandatoryRequirements: eligibility/compliance conditions a bidder must meet to qualify (registration, turnover, experience, blacklist status, etc.)
+- technicalRequirements: scope of work, methodology, deliverable specifications, technical scope items
+- financialRequirements: pricing/financial submission rules (currency, taxes, payment terms, validity period)
+- deliverables: concrete outputs the winning bidder must produce
+- requiredDocuments: documents that must be submitted with the proposal (certificates, forms, annexures)
+- evaluationCriteria: how the bid will be scored, including point allocations if stated
+- If a field is not present in the text, use an empty string or empty array — do not guess or hallucinate.
 
 RFP text:
-${chunkText}
+${text}
 `;
 }
 
@@ -34,46 +47,39 @@ export const extractRequirements = async (req, res) => {
     const document = await Document.findById(req.params.id);
     if (!document) return res.status(404).json({ error: "Document not found" });
 
-    const chunks = chunkText(document.extractedText);
+    const prompt = buildPrompt(document.extractedText);
+    const rawResponse = await askOllama(prompt);
 
-    let allRequirements = [];
-    let deadline = "";
-    let allCriteria = [];
-    const rawResponses = [];
-
-    for (let i = 0; i < chunks.length; i++) {
-      const prompt = buildPrompt(chunks[i]);
-      const rawResponse = await askOllama(prompt);
-      rawResponses.push(rawResponse);
-
-      try {
-        const jsonMatch = rawResponse.match(/\{[\s\S]*\}/);
-        const parsed = JSON.parse(jsonMatch[0]);
-
-        if (Array.isArray(parsed.mandatoryRequirements)) {
-          allRequirements.push(...parsed.mandatoryRequirements);
-        }
-        if (parsed.submissionDeadline && parsed.submissionDeadline.trim()) {
-          deadline = parsed.submissionDeadline; // last non-empty one wins
-        }
-        if (Array.isArray(parsed.evaluationCriteria)) {
-          allCriteria.push(...parsed.evaluationCriteria);
-        }
-      } catch (e) {
-        console.warn(`Chunk ${i} failed to parse, skipping:`, e.message);
-      }
+    let parsed;
+    try {
+      const jsonMatch = rawResponse.match(/\{[\s\S]*\}/);
+      parsed = JSON.parse(jsonMatch[0]);
+    } catch (e) {
+      return res
+        .status(422)
+        .json({ error: "Failed to parse LLM response", rawResponse });
     }
-
-    // dedupe (simple exact-match dedupe for now — good enough at this stage)
-    const uniqueRequirements = [...new Set(allRequirements)];
-    const uniqueCriteria = [...new Set(allCriteria)];
 
     const extraction = await Extraction.create({
       document: document._id,
-      mandatoryRequirements: uniqueRequirements,
-      submissionDeadline: deadline,
-      evaluationCriteria: uniqueCriteria,
-      rawLLMResponse: rawResponses.join("\n---\n"),
+      title: parsed.title || "",
+      organization: parsed.organization || "",
+      rfpNumber: parsed.rfpNumber || "",
+      country: parsed.country || "",
+      submissionDeadline: parsed.submissionDeadline || "",
+      projectDuration: parsed.projectDuration || "",
+      contractType: parsed.contractType || "",
+      mandatoryRequirements: parsed.mandatoryRequirements || [],
+      technicalRequirements: parsed.technicalRequirements || [],
+      financialRequirements: parsed.financialRequirements || [],
+      deliverables: parsed.deliverables || [],
+      requiredDocuments: parsed.requiredDocuments || [],
+      evaluationCriteria: parsed.evaluationCriteria || [],
+      contact: {
+        email: parsed.contact?.email || "",
+        address: parsed.contact?.address || "",
+      },
+      rawLLMResponse: rawResponse,
     });
 
     res.json(extraction);

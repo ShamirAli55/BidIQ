@@ -8,6 +8,7 @@ export async function askOpenRouter(prompt) {
     body: JSON.stringify({
       model: "inclusionai/ling-3.0-flash:free",
       messages: [{ role: "user", content: prompt }],
+      max_tokens: 4000,
     }),
   });
 

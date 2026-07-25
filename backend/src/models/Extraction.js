@@ -1,4 +1,4 @@
-import mongoose from "mongoose"
+import mongoose from "mongoose";
 
 const extractionSchema = new mongoose.Schema({
   document: {
@@ -6,10 +6,24 @@ const extractionSchema = new mongoose.Schema({
     ref: "Document",
     required: true,
   },
-  mandatoryRequirements: [String],
+  title: String,
+  organization: String,
+  rfpNumber: String,
+  country: String,
   submissionDeadline: String,
+  projectDuration: String,
+  contractType: String,
+  mandatoryRequirements: [String],
+  technicalRequirements: [String],
+  financialRequirements: [String],
+  deliverables: [String],
+  requiredDocuments: [String],
   evaluationCriteria: [String],
-  rawLLMResponse: String, // keep this for debugging bad parses
+  contact: {
+    email: String,
+    address: String,
+  },
+  rawLLMResponse: String,
   createdAt: { type: Date, default: Date.now },
 });
 

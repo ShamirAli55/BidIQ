@@ -3,6 +3,8 @@ import dotenv from "dotenv";
 import cors from "cors";
 import connectDB from "./config/db.js";
 import authRoutes from "./routes/auth.routes.js";
+import FileRoutes from "./routes/file.routes.js";
+import extractionRoutes from "./routes/extraction.routes.js";
 
 dotenv.config();
 
@@ -15,6 +17,8 @@ app.get("/api/health", (_, res) => {
 });
 
 app.use("/api/auth", authRoutes);
+app.use("/api/upload", FileRoutes);
+app.use("/api/documents", extractionRoutes);
 
 const PORT = process.env.PORT;
 
