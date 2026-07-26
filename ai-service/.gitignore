@@ -23,7 +23,9 @@ env
 
 
 .chroma_store
-chorma_store/*
+chroma_store/*
+./chroma_store
 
 __pychache__/*
 ./__pychache__
+.__pychache__

@@ -1,4 +1,4 @@
-import mongoose from "mongoose"
+import mongoose from "mongoose";
 
 const matchSchema = new mongoose.Schema({
   extraction: {
@@ -6,27 +6,23 @@ const matchSchema = new mongoose.Schema({
     ref: "Extraction",
     required: true,
   },
-  requirementText: { type: String, required: true },
+  requirementText: String,
   requirementType: {
     type: String,
     enum: ["mandatory", "technical", "financial"],
-    required: true,
   },
+  method: { type: String, enum: ["rag", "fact_check"], required: true },
   matchedCapabilities: [
-    {
-      capId: String,
-      distance: Number,
-      documentText: String,
-    },
+    { capId: String, distance: Number, documentText: String },
   ],
+  factCheckResult: { verdict: String, reason: String },
   status: {
     type: String,
-    enum: ["matched", "gap", "review"],
-    default: "review",
+    enum: ["matched", "gap", "pass", "fail", "insufficient_data"],
   },
   createdAt: { type: Date, default: Date.now },
 });
 
 const matchModel = mongoose.model("Match", matchSchema);
 
-export default matchModel
+export default matchModel;

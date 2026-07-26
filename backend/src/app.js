@@ -6,6 +6,7 @@ import authRoutes from "./routes/auth.routes.js";
 import FileRoutes from "./routes/file.routes.js";
 import extractionRoutes from "./routes/extraction.routes.js";
 import matchRoutes from "./routes/match.routes.js";
+import companyProfileRoutes from "./routes/companyProfile.routes.js";
 
 dotenv.config();
 
@@ -21,6 +22,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/upload", FileRoutes);
 app.use("/api/documents", extractionRoutes);
 app.use("/api/extractions", matchRoutes);
+app.use("/api/company-profile", companyProfileRoutes);
 
 const PORT = process.env.PORT;
 
