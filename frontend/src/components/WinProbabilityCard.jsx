@@ -1,24 +1,27 @@
-import { TrendingUp, AlertTriangle, CheckCircle2, DollarSign, Clock, Building2, FileCheck2, BarChart2 } from "lucide-react";
+import { TrendingUp, AlertTriangle, CheckCircle2, DollarSign, Clock, Building2, FileCheck2 } from "lucide-react";
 
 export default function WinProbabilityCard({ scoreData }) {
   if (!scoreData) return null;
 
   const { stats, budget, responseTimeHrs, sector, prediction } = scoreData;
-  
+
+  // Only use the real model output — never substitute a hardcoded value
   const rawProb = prediction?.winProbability;
-  const normalizedProb = typeof rawProb === "number"
-    ? (rawProb <= 1.0 ? rawProb * 100 : rawProb)
-    : (prediction?.prediction === "Win" ? 75 : 25);
-  
-  const winPercentage = Math.round(normalizedProb);
-  const isWin = prediction?.prediction === "Win" || winPercentage >= 50;
+  const hasRealProb = typeof rawProb === "number";
+  const winPercentage = hasRealProb
+    ? Math.round(rawProb <= 1.0 ? rawProb * 100 : rawProb)
+    : null;
+
+  const isWin = prediction?.prediction === "Win";
+  const isLoss = prediction?.prediction === "Loss";
+  const outcomeKnown = isWin || isLoss;
 
 
   return (
     <div className="rounded-2xl border border-slate-800 bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 p-6 space-y-6 shadow-xl relative overflow-hidden">
       <div
         className={`absolute -top-24 -right-24 w-60 h-60 rounded-full blur-3xl opacity-20 pointer-events-none ${
-          isWin ? "bg-emerald-500" : "bg-rose-500"
+          isWin ? "bg-emerald-500" : isLoss ? "bg-rose-500" : "bg-slate-500"
         }`}
       />
       <div className="flex items-center justify-between">
@@ -32,16 +35,18 @@ export default function WinProbabilityCard({ scoreData }) {
           </div>
         </div>
 
-        <span
-          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${
-            isWin
-              ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
-              : "bg-rose-500/10 text-rose-400 border-rose-500/30"
-          }`}
-        >
-          {isWin ? <CheckCircle2 className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
-          Predicted Outcome: {prediction?.prediction || (isWin ? "Win" : "Loss")}
-        </span>
+        {outcomeKnown && (
+          <span
+            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${
+              isWin
+                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                : "bg-rose-500/10 text-rose-400 border-rose-500/30"
+            }`}
+          >
+            {isWin ? <CheckCircle2 className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
+            Predicted Outcome: {prediction.prediction}
+          </span>
+        )}
       </div>
 
       <div className="space-y-2">
@@ -49,24 +54,32 @@ export default function WinProbabilityCard({ scoreData }) {
           <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
             Win Probability Score
           </span>
-          <span
-            className={`text-2xl font-black font-mono ${
-              isWin ? "text-emerald-400" : "text-rose-400"
-            }`}
-          >
-            {winPercentage}%
-          </span>
+          {hasRealProb ? (
+            <span
+              className={`text-2xl font-black font-mono ${
+                isWin ? "text-emerald-400" : "text-rose-400"
+              }`}
+            >
+              {winPercentage}%
+            </span>
+          ) : (
+            <span className="text-sm font-semibold text-slate-500 italic">Unavailable</span>
+          )}
         </div>
 
         <div className="w-full h-3 rounded-full bg-slate-950 border border-slate-800 overflow-hidden p-0.5">
-          <div
-            className={`h-full rounded-full transition-all duration-700 ${
-              isWin
-                ? "bg-gradient-to-r from-emerald-600 to-emerald-400"
-                : "bg-gradient-to-r from-rose-600 to-amber-500"
-            }`}
-            style={{ width: `${Math.min(100, Math.max(5, winPercentage))}%` }}
-          />
+          {hasRealProb ? (
+            <div
+              className={`h-full rounded-full transition-all duration-700 ${
+                isWin
+                  ? "bg-gradient-to-r from-emerald-600 to-emerald-400"
+                  : "bg-gradient-to-r from-rose-600 to-amber-500"
+              }`}
+              style={{ width: `${Math.min(100, Math.max(5, winPercentage))}%` }}
+            />
+          ) : (
+            <div className="h-full rounded-full bg-slate-700/40 w-full" />
+          )}
         </div>
       </div>
 
