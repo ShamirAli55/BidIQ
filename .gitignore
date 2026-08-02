@@ -1,0 +1,37 @@
+# Dependencies & Node
+node_modules/
+
+# Environment Variables & Secrets
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Python & AI Service
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+ENV/
+chroma_store/
+.chroma_store/
+
+# Uploads & Temp
+backend/uploads/*
+!backend/uploads/.gitkeep
+*.log
+logs/
+
+# Build & Dist
+dist/
+dist-ssr/
+build/
+
+# IDE & OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db

@@ -1,31 +1,27 @@
-pychache
-pychache/*
+# Python Bytecode & Cache
+__pycache__/
+*.py[cod]
+*$py.class
 
-venv
-venv/*
-.venv
-./venv
+# Virtual Environments
+venv/
+.venv/
+env/
+ENV/
 
-env
+# Environment Variables
 .env
-./env
+.env.local
+.env.*.local
+!.env.example
 
+# Vector Store Data (ChromaDB)
+chroma_store/
+.chroma_store/
 
+# IDE & System
 .vscode/*
 !.vscode/extensions.json
-.idea
+.idea/
 .DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-
-
-.chroma_store
-chroma_store/*
-./chroma_store
-
-__pychache__/*
-./__pychache__
-.__pychache__
+Thumbs.db
