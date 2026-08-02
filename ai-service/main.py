@@ -27,10 +27,16 @@ def match_requirement(req: MatchRequest):
 
 # --- Win-probability model setup ---
 win_model = joblib.load("./models/logistic_model.pkl")
-FEATURE_COLUMNS = win_model.feature_names_in_.tolist()
+scaler = joblib.load("./models/scaler.pkl")
+
+FEATURE_COLUMNS = [
+    'budget', 'response_time_(hrs)', 'compliance_%', 'doc_pages', 'gaps_found',
+    'sector_Education', 'sector_Energy', 'sector_Finance', 'sector_Healthcare',
+    'sector_IT Services', 'sector_Logistics', 'sector_Telecom',
+]
 
 class BidStatsRequest(BaseModel):
-    score_percent: float
+    budget: float
     response_time_hrs: float
     compliance_percent: float
     doc_pages: int
@@ -40,7 +46,7 @@ class BidStatsRequest(BaseModel):
 @app.post("/predict")
 def predict_win(req: BidStatsRequest):
     row = pd.DataFrame(0, index=[0], columns=FEATURE_COLUMNS)
-    row["score_(%)"] = req.score_percent
+    row["budget"] = req.budget
     row["response_time_(hrs)"] = req.response_time_hrs
     row["compliance_%"] = req.compliance_percent
     row["doc_pages"] = req.doc_pages
@@ -50,11 +56,12 @@ def predict_win(req: BidStatsRequest):
     if sector_col in row.columns:
         row[sector_col] = 1
 
-    prediction = win_model.predict(row)[0]
-    probability = win_model.predict_proba(row)[0][1]
+    row_scaled = scaler.transform(row)
+
+    prediction = win_model.predict(row_scaled)[0]
+    probability = win_model.predict_proba(row_scaled)[0][1]
 
     return {
         "prediction": "Win" if prediction == 1 else "Loss",
         "winProbability": round(float(probability), 3),
     }
-    
