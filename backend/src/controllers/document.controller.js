@@ -15,6 +15,7 @@ import {
 } from "../utils/rfpAnalysis.js";
 import { computeBidStats, parseBudget } from "../utils/bidUtils.js";
 import { cleanPdfText, normalizeParagraphs } from "../utils/pdfUtils.js";
+import { generateComplianceStatement } from "../utils/generateComplianceStatement.js";
 
 const require = createRequire(import.meta.url);
 const pdfParse = require("pdf-parse");
@@ -25,11 +26,33 @@ const RAG_THRESHOLD = 350;
 function normalizeMatchStatus(rawStatus) {
   if (!rawStatus) return "insufficient_data";
   const s = String(rawStatus).toLowerCase().trim();
-  if (["pass", "passed", "success", "successful", "met", "true", "yes"].includes(s)) return "pass";
+  if (
+    ["pass", "passed", "success", "successful", "met", "true", "yes"].includes(
+      s,
+    )
+  )
+    return "pass";
   if (["fail", "failed", "unmet", "false", "no"].includes(s)) return "fail";
   if (["matched", "match"].includes(s)) return "matched";
   if (["gap"].includes(s)) return "gap";
   return "insufficient_data";
+}
+
+function decideStatus(matchedCapabilities) {
+  if (!matchedCapabilities.length) return "gap";
+
+  const best = matchedCapabilities[0].distance;
+  const ABSOLUTE_CEILING = 400; // nothing worse than this is ever a real match
+
+  if (best > ABSOLUTE_CEILING) return "gap";
+
+  const others = matchedCapabilities.slice(1).map((m) => m.distance);
+  const avgOthers = others.length
+    ? others.reduce((a, b) => a + b, 0) / others.length
+    : best;
+
+  const relativelyStrong = best < avgOthers * 0.95;
+  return relativelyStrong || best < RAG_THRESHOLD ? "matched" : "gap";
 }
 
 // --- Helper for RAG Vector Matching ---
@@ -40,8 +63,7 @@ async function ragMatch(text, requirementType) {
     distance: result.distances[0][i],
     documentText: result.documents[0][i],
   }));
-  const status =
-    matchedCapabilities[0]?.distance < RAG_THRESHOLD ? "matched" : "gap";
+  const status = decideStatus(matchedCapabilities);
   return { requirementType, method: "rag", matchedCapabilities, status };
 }
 
@@ -84,6 +106,55 @@ ${text}
 `;
 }
 
+export const listDocuments = async (req, res) => {
+  try {
+    const documents = await Document.find(
+      {},
+      "originalName pageCount uploadedAt",
+    ).sort({ uploadedAt: -1 });
+    res.json(documents);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to list documents" });
+  }
+};
+export const getWorkspace = async (req, res) => {
+  try {
+    const document = await Document.findById(req.params.id);
+    if (!document) return res.status(404).json({ error: "Document not found" });
+
+    const extraction = await Extraction.findOne({
+      document: document._id,
+    }).sort({ createdAt: -1 });
+    let matches = [];
+    let drafts = [];
+
+    if (extraction) {
+      matches = await Match.find({ extraction: extraction._id });
+      drafts = await DraftSection.find({ extraction: extraction._id });
+    }
+
+    res.json({
+      document,
+      extraction,
+      matchSummary: {
+        total: matches.length,
+        matched: matches.filter(
+          (m) => m.status === "matched" || m.status === "pass",
+        ).length,
+        gaps: matches.filter((m) => m.status === "gap" || m.status === "fail")
+          .length,
+        needsReview: matches.filter((m) => m.status === "insufficient_data")
+          .length,
+      },
+      matches,
+      drafts,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to load workspace" });
+  }
+};
 // 1. PDF File Upload
 export const pdfUpload = async (req, res) => {
   try {
@@ -228,13 +299,17 @@ export const matchExtraction = async (req, res) => {
 // 4. Generate Proposal Draft Sections
 export const generateDrafts = async (req, res) => {
   try {
-    const matchedRequirements = await Match.find({
+    const ragMatches = await Match.find({
       extraction: req.params.id,
       status: "matched",
     });
+    const passedFacts = await Match.find({
+      extraction: req.params.id,
+      status: "pass",
+    });
     const drafts = [];
 
-    for (const m of matchedRequirements) {
+    for (const m of ragMatches) {
       const topCapability = m.matchedCapabilities[0];
       if (!topCapability) continue;
 
@@ -249,13 +324,31 @@ export const generateDrafts = async (req, res) => {
           requirementText: m.requirementText,
           draftText: draftText.trim(),
           basedOnCapability: topCapability.capId,
+          source: "rag",
+        }),
+      );
+    }
+
+    for (const m of passedFacts) {
+      const draftText = await generateComplianceStatement(
+        m.requirementText,
+        m.factCheckResult.reason,
+      );
+
+      drafts.push(
+        await DraftSection.create({
+          extraction: req.params.id,
+          requirementText: m.requirementText,
+          draftText: draftText.trim(),
+          basedOnCapability: null,
+          source: "fact_check",
         }),
       );
     }
 
     res.json({ count: drafts.length, drafts });
   } catch (err) {
-    console.error("Draft generation error:", err);
+    console.error(err);
     res.status(500).json({ error: "Draft generation failed" });
   }
 };

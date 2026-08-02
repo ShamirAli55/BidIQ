@@ -8,7 +8,8 @@ const draftSectionSchema = new mongoose.Schema({
   },
   requirementText: String,
   draftText: String,
-  basedOnCapability: String, // capId used as evidence
+  basedOnCapability: String,
+  source: { type: String, enum: ["rag", "fact_check"], default: "rag" },
   createdAt: { type: Date, default: Date.now },
 });
 
