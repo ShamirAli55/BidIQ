@@ -1,26 +1,74 @@
-import {useState} from "react";
-function App()
-{
-  const [status,setStatus] = useState("");
-  const handleFileChange = async (e)=>
-  {
-    const file = e.target.files[0];  
-    const formdata = new FormData();
+import React, { useEffect } from "react";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { Toaster } from "react-hot-toast";
+import { useAuthStore } from "./stores/authStore";
+import ProtectedRoute from "./components/ProtectedRoute";
+import LoginPage from "./pages/LoginPage";
+import SignupPage from "./pages/SignupPage";
+import DashboardPage from "./pages/DashboardPage";
+import WorkspacePage from "./pages/WorkspacePage";
 
-    formdata.append('rfpFile',file);
-    const res = await fetch('http://localhost:5000/api/documents/upload',{
-      method:'POST',
-      body:formdata
-    });
-    const data = await res.json();
-    setStatus(`Uploaded: ${data.message}`);
-  }
+export default function App() {
+  const checkAuth = useAuthStore((state) => state.checkAuth);
 
-  return(
-    <div>
-     <input type="file" accept=".pdf" onChange={handleFileChange}/>
-     <p>{status}</p>
-    </div>
-  )
+  useEffect(() => {
+    checkAuth();
+  }, [checkAuth]);
+
+  return (
+    <BrowserRouter>
+      {/* Toast Notification Container */}
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: "#0f172a",
+            color: "#f8fafc",
+            border: "1px solid #334155",
+            fontSize: "14px",
+            borderRadius: "12px",
+            padding: "12px 16px",
+          },
+          success: {
+            iconTheme: {
+              primary: "#10b981",
+              secondary: "#0f172a",
+            },
+          },
+          error: {
+            iconTheme: {
+              primary: "#f43f5e",
+              secondary: "#0f172a",
+            },
+          },
+        }}
+      />
+
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/signup" element={<SignupPage />} />
+
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              <DashboardPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/workspace/:id"
+          element={
+            <ProtectedRoute>
+              <WorkspacePage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </BrowserRouter>
+  );
 }
-export default App;
