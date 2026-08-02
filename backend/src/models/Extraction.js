@@ -13,19 +13,18 @@ const extractionSchema = new mongoose.Schema({
   submissionDeadline: String,
   projectDuration: String,
   contractType: String,
+  estimatedBudget: String,
   mandatoryRequirements: [String],
   technicalRequirements: [String],
   financialRequirements: [String],
   deliverables: [String],
   requiredDocuments: [String],
   evaluationCriteria: [String],
-  contact: {
-    email: String,
-    address: String,
-  },
+  contact: { email: String, address: String },
   rawLLMResponse: String,
   createdAt: { type: Date, default: Date.now },
 });
 
 const extractionMode = mongoose.model("Extraction", extractionSchema);
+
 export default extractionMode;

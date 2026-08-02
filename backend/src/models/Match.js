@@ -18,8 +18,9 @@ const matchSchema = new mongoose.Schema({
   factCheckResult: { verdict: String, reason: String },
   status: {
     type: String,
-    enum: ["matched", "gap", "pass", "fail", "insufficient_data"],
+    enum: ["matched", "gap", "pass", "fail", "success", "insufficient_data"],
   },
+
   createdAt: { type: Date, default: Date.now },
 });
 

@@ -4,6 +4,7 @@ const documentSchema = new mongoose.Schema({
   originalName: String,
   filePath: String,
   extractedText: String,
+  pageCount: Number,
   uploadedAt: { type: Date, default: Date.now },
 });
 
