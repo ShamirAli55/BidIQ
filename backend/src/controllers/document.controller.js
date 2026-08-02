@@ -188,7 +188,7 @@ export const extractRequirements = async (req, res) => {
     if (!document) return res.status(404).json({ error: "Document not found" });
 
     const prompt = buildExtractionPrompt(document.extractedText);
-    const rawResponse = await askLLM(prompt);
+    const rawResponse = await askLLM(prompt, { task: "extraction" });
 
     let parsed;
     try {

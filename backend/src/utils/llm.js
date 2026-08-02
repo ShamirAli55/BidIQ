@@ -1,15 +1,17 @@
 import ollama from "ollama";
 
 /**
- * Centralized LLM Dispatcher for BidIQ Backend.
- * Allows seamless switching between OpenRouter and Ollama via environment variables.
+ * Centralized Flexible LLM Dispatcher for BidIQ Backend.
+ * Allows task-based or per-call provider selection:
+ *   - Extraction & Scoring -> OpenRouter
+ *   - Draft Generation    -> HuggingFace (with automatic fallback)
+ *   - Matching            -> Local Ollama
  *
  * Configurable via .env:
- *   LLM_PROVIDER: "openrouter" | "ollama" (Default: "openrouter")
- *   OPENROUTER_API_KEY: OpenRouter API key
- *   OPENROUTER_MODEL: Default OpenRouter model (Default: "inclusionai/ling-3.0-flash:free")
- *   OLLAMA_MODEL: Default Ollama model (Default: "qwen2.5:3b")
- *   OLLAMA_HOST: Ollama host address (Default: "http://127.0.0.1:11434")
+ *   EXTRACTION_LLM_PROVIDER: "openrouter"
+ *   MATCH_LLM_PROVIDER: "ollama"
+ *   DRAFT_LLM_PROVIDER: "huggingface"
+ *   SCORE_LLM_PROVIDER: "openrouter"
  */
 
 export async function askOpenRouter(prompt, options = {}) {
@@ -46,7 +48,7 @@ export async function askOpenRouter(prompt, options = {}) {
 }
 
 export async function askOllama(prompt, options = {}) {
-  const model = options.model || process.env.OLLAMA_MODEL || "qwen2.5:3b";
+  const model = options.model || process.env.OLLAMA_MODEL || "phi4-mini:latest";
 
   try {
     const response = await ollama.chat({
@@ -60,18 +62,88 @@ export async function askOllama(prompt, options = {}) {
   }
 }
 
-export async function askLLM(prompt, options = {}) {
-  const provider = (options.provider || process.env.LLM_PROVIDER || "openrouter")
-    .toLowerCase()
-    .trim();
+export async function askHuggingFace(prompt, options = {}) {
+  const apiKey = process.env.HF_API_KEY || process.env.HUGGINGFACE_API_KEY;
+  const routerUrl = process.env.HF_ROUTER_URL || "https://router.huggingface.co/v1/chat/completions";
+  const model = options.model || process.env.HF_MODEL_DEFAULT || "Qwen/Qwen2.5-7B-Instruct";
 
-  if (provider === "ollama") {
-    const model = options.model || process.env.OLLAMA_MODEL || "qwen2.5:3b";
-    console.log(`[LLM] Dispatching request to Ollama using model '${model}'...`);
+  try {
+    // Attempt 1: HuggingFace Router v1 Chat Completions (OpenAI Compatible)
+    const res = await fetch(routerUrl, {
+      method: "POST",
+      headers: {
+        Authorization: apiKey ? `Bearer ${apiKey}` : undefined,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: model,
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: options.max_tokens || 2048,
+      }),
+    });
+
+    const data = await res.json();
+
+    if (res.ok && data.choices?.[0]?.message?.content) {
+      return data.choices[0].message.content.trim();
+    }
+
+    // Attempt 2: Fallback to direct Inference API
+    const inferenceUrl = `${process.env.HF_INFERENCE_URL || "https://api-inference.huggingface.co/models"}/${model}`;
+    const infRes = await fetch(inferenceUrl, {
+      method: "POST",
+      headers: {
+        Authorization: apiKey ? `Bearer ${apiKey}` : undefined,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        inputs: prompt,
+        parameters: { max_new_tokens: 1000, return_full_text: false },
+      }),
+    });
+
+    const infData = await infRes.json();
+
+    if (Array.isArray(infData) && infData[0]?.generated_text) {
+      return infData[0].generated_text.trim();
+    } else if (infData.generated_text) {
+      return infData.generated_text.trim();
+    } else if (infData.choices?.[0]?.message?.content) {
+      return infData.choices[0].message.content.trim();
+    }
+
+    console.warn(`[LLM] HuggingFace endpoint warning, falling back to OpenRouter:`, data || infData);
+    return await askOpenRouter(prompt, options);
+  } catch (err) {
+    console.warn(`[LLM] HuggingFace request failed (${err.message}), falling back to OpenRouter`);
+    return await askOpenRouter(prompt, options);
+  }
+}
+
+export async function askLLM(prompt, options = {}) {
+  let provider = options.provider;
+
+  if (!provider && options.task) {
+    const envKey = `${options.task.toUpperCase()}_LLM_PROVIDER`;
+    provider = process.env[envKey];
+  }
+
+  if (!provider) {
+    provider = process.env.LLM_PROVIDER || "openrouter";
+  }
+
+  provider = provider.toLowerCase().trim();
+
+  if (provider === "ollama" || provider === "local") {
+    const model = options.model || process.env.OLLAMA_MODEL || "phi4-mini:latest";
+    console.log(`[LLM] Dispatching '${options.task || "general"}' to Local Ollama (${model})...`);
     return await askOllama(prompt, { ...options, model });
+  } else if (provider === "huggingface" || provider === "hf") {
+    console.log(`[LLM] Dispatching '${options.task || "general"}' to HuggingFace Inference...`);
+    return await askHuggingFace(prompt, options);
   } else {
     const model = options.model || process.env.OPENROUTER_MODEL || "inclusionai/ling-3.0-flash:free";
-    console.log(`[LLM] Dispatching request to OpenRouter using model '${model}'...`);
+    console.log(`[LLM] Dispatching '${options.task || "general"}' to OpenRouter (${model})...`);
     return await askOpenRouter(prompt, { ...options, model });
   }
 }
