@@ -34,7 +34,7 @@ export default function DraftSectionCard({ draft, index }) {
             Proposal Section
           </span>
           <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-800 text-slate-400 border border-slate-700">
-            Source: {draft.source === "rag" ? "Vector RAG" : "Fact Check"}
+            {draft.source === "rag" ? "Capability Evidence" : "Compliance Statement"}
           </span>
         </div>
 

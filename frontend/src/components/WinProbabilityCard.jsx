@@ -30,8 +30,8 @@ export default function WinProbabilityCard({ scoreData }) {
             <TrendingUp className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="text-base font-bold text-white">Win Probability AI Prediction</h3>
-            <p className="text-xs text-slate-400">Machine learning model bid success prediction</p>
+            <h3 className="text-base font-bold text-white">Bid Win Probability Assessment</h3>
+            <p className="text-xs text-slate-400">Statistical bid success prediction & compliance model</p>
           </div>
         </div>
 
