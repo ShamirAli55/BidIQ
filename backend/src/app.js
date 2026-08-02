@@ -2,10 +2,7 @@ import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
 import connectDB from "./config/db.js";
-import authRoutes from "./routes/auth.routes.js";
-import FileRoutes from "./routes/file.routes.js";
-import extractionRoutes from "./routes/extraction.routes.js";
-import matchRoutes from "./routes/match.routes.js";
+import documentRoutes from "./routes/document.routes.js";
 import companyProfileRoutes from "./routes/companyProfile.routes.js";
 
 dotenv.config();
@@ -18,15 +15,15 @@ app.get("/api/health", (_, res) => {
   res.send("Backend is working ...");
 });
 
-app.use("/api/auth", authRoutes);
-app.use("/api/upload", FileRoutes);
-app.use("/api/documents", extractionRoutes);
-app.use("/api/extractions", matchRoutes);
+// Mounted Routes (100% backward compatible endpoint signatures)
+app.use("/api/upload", documentRoutes);
+app.use("/api/extractions", documentRoutes);
 app.use("/api/company-profile", companyProfileRoutes);
+app.use("/api/documents", documentRoutes);
 
-const PORT = process.env.PORT;
+const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, async () => {
   await connectDB();
-  console.log(`Server is running on ${PORT}`);
+  console.log(`Server is running on port ${PORT}`);
 });
