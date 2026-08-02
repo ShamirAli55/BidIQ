@@ -1,4 +1,5 @@
 import { askLLM } from "./llm.js";
+import { matchRequirement } from "./aiService.js";
 
 const KNOWN_SECTORS = [
   "Construction",
@@ -10,6 +11,96 @@ const KNOWN_SECTORS = [
   "Logistics",
   "Telecom",
 ];
+
+const RAG_THRESHOLD = 350;
+
+/**
+ * Builds the structured JSON prompt for RFP document extraction.
+ */
+export function buildExtractionPrompt(text) {
+  return `
+Extract the following structured information from this RFP/tender document.
+Return ONLY valid JSON matching this exact shape, no other text, no markdown code fences:
+
+{
+  "title": "",
+  "organization": "",
+  "rfpNumber": "",
+  "country": "",
+  "submissionDeadline": "",
+  "projectDuration": "",
+  "contractType": "",
+  "estimatedBudget": "",
+  "mandatoryRequirements": [],
+  "technicalRequirements": [],
+  "financialRequirements": [],
+  "deliverables": [],
+  "requiredDocuments": [],
+  "evaluationCriteria": [],
+  "contact": { "email": "", "address": "" }
+}
+
+Rules:
+- estimatedBudget: total contract value, budget, or estimated cost if explicitly stated (e.g. "PKR 424M"). Leave empty string if not stated — do not calculate or guess.
+- mandatoryRequirements: eligibility/compliance conditions a bidder must meet to qualify
+- technicalRequirements: scope of work, methodology, deliverable specifications
+- financialRequirements: pricing/financial submission rules
+- deliverables: concrete outputs the winning bidder must produce
+- requiredDocuments: documents that must be submitted with the proposal
+- evaluationCriteria: how the bid will be scored
+- If a field is not present, use an empty string or empty array — do not guess.
+
+RFP text:
+${text}
+`;
+}
+
+/**
+ * Normalizes fact check or RAG status strings into standard Match Schema enum values.
+ */
+export function normalizeMatchStatus(rawStatus) {
+  if (!rawStatus) return "insufficient_data";
+  const s = String(rawStatus).toLowerCase().trim();
+  if (["pass", "passed", "success", "successful", "met", "true", "yes"].includes(s)) return "pass";
+  if (["fail", "failed", "unmet", "false", "no"].includes(s)) return "fail";
+  if (["matched", "match"].includes(s)) return "matched";
+  if (["gap"].includes(s)) return "gap";
+  return "insufficient_data";
+}
+
+/**
+ * Evaluates RAG vector distance results to decide if requirement is matched or a gap.
+ */
+export function decideMatchStatus(matchedCapabilities) {
+  if (!matchedCapabilities || !matchedCapabilities.length) return "gap";
+
+  const best = matchedCapabilities[0].distance;
+  const ABSOLUTE_CEILING = 400;
+
+  if (best > ABSOLUTE_CEILING) return "gap";
+
+  const others = matchedCapabilities.slice(1).map((m) => m.distance);
+  const avgOthers = others.length
+    ? others.reduce((a, b) => a + b, 0) / others.length
+    : best;
+
+  const relativelyStrong = best < avgOthers * 0.95;
+  return relativelyStrong || best < RAG_THRESHOLD ? "matched" : "gap";
+}
+
+/**
+ * Performs RAG Vector Matching against vector store capabilities.
+ */
+export async function ragMatch(text, requirementType) {
+  const result = await matchRequirement(text);
+  const matchedCapabilities = result.ids[0].map((capId, i) => ({
+    capId,
+    distance: result.distances[0][i],
+    documentText: result.documents[0][i],
+  }));
+  const status = decideMatchStatus(matchedCapabilities);
+  return { requirementType, method: "rag", matchedCapabilities, status };
+}
 
 /**
  * Classifies an RFP requirement into either 'fact' or 'experience'.
@@ -96,7 +187,6 @@ Respond ONLY with valid JSON, no other text:
   }
 }
 
-
 /**
  * Generates a proposal draft paragraph for a requirement using capability evidence.
  */
@@ -111,6 +201,24 @@ Past project evidence:
 "${capabilityText}"
 
 Return ONLY the paragraph text, no headers, no JSON.
+`;
+  return await askLLM(prompt, { task: "draft" });
+}
+
+/**
+ * Generates a single sentence compliance statement for a factual requirement.
+ */
+export async function generateComplianceStatement(requirementText, factCheckReason) {
+  const prompt = `
+Write one short, professional sentence for a proposal document confirming compliance with this requirement, based on the fact given. Write in first person plural ("we," "our firm"). Do not invent details beyond what's stated.
+
+Requirement:
+"${requirementText}"
+
+Fact:
+"${factCheckReason}"
+
+Return ONLY the sentence, no other text.
 `;
   return await askLLM(prompt, { task: "draft" });
 }
