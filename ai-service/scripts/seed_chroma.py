@@ -50,7 +50,7 @@ mongo_client.close()
 
 print(f"Stored {chroma_collection.count()} capability records in Chroma")
 
-# now actually test it with a real query
+# query
 query_text = "experience with government cybersecurity infrastructure"
 query_vector = embedding(query_text)
 
