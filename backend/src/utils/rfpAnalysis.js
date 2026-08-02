@@ -28,10 +28,16 @@ Respond ONLY with valid JSON, no other text:
 { "category": "fact" | "experience" }
 `;
 
-  const raw = await askLLM(prompt);
-  const jsonMatch = raw.match(/\{[\s\S]*\}/);
-  const parsed = JSON.parse(jsonMatch[0]);
-  return parsed.category;
+  try {
+    const raw = await askLLM(prompt, { task: "match" });
+    const jsonMatch = raw.match(/\{[\s\S]*?\}/);
+    if (!jsonMatch) return "experience";
+    const parsed = JSON.parse(jsonMatch[0]);
+    return parsed.category || "experience";
+  } catch (err) {
+    console.warn("classifyRequirement JSON parse warning:", err.message);
+    return "experience";
+  }
 }
 
 /**
@@ -47,10 +53,16 @@ Organization: "${organization}"
 Respond ONLY with valid JSON: { "sector": "..." }
 Pick the closest match even if imperfect.
 `;
-  const raw = await askLLM(prompt);
-  const jsonMatch = raw.match(/\{[\s\S]*\}/);
-  const parsed = JSON.parse(jsonMatch[0]);
-  return KNOWN_SECTORS.includes(parsed.sector) ? parsed.sector : "IT Services";
+  try {
+    const raw = await askLLM(prompt, { task: "score" });
+    const jsonMatch = raw.match(/\{[\s\S]*?\}/);
+    if (!jsonMatch) return "IT Services";
+    const parsed = JSON.parse(jsonMatch[0]);
+    return KNOWN_SECTORS.includes(parsed.sector) ? parsed.sector : "IT Services";
+  } catch (err) {
+    console.warn("classifySector JSON parse warning:", err.message);
+    return "IT Services";
+  }
 }
 
 /**
@@ -73,10 +85,17 @@ Respond ONLY with valid JSON, no other text:
 }
 `;
 
-  const raw = await askLLM(prompt);
-  const jsonMatch = raw.match(/\{[\s\S]*\}/);
-  return JSON.parse(jsonMatch[0]);
+  try {
+    const raw = await askLLM(prompt, { task: "match" });
+    const jsonMatch = raw.match(/\{[\s\S]*?\}/);
+    if (!jsonMatch) return { verdict: "INSUFFICIENT_DATA", reason: "Parsing failed" };
+    return JSON.parse(jsonMatch[0]);
+  } catch (err) {
+    console.warn("factCheckRequirement JSON parse warning:", err.message);
+    return { verdict: "INSUFFICIENT_DATA", reason: "Failed to parse fact-check verdict" };
+  }
 }
+
 
 /**
  * Generates a proposal draft paragraph for a requirement using capability evidence.
@@ -93,5 +112,5 @@ Past project evidence:
 
 Return ONLY the paragraph text, no headers, no JSON.
 `;
-  return await askLLM(prompt);
+  return await askLLM(prompt, { task: "draft" });
 }
