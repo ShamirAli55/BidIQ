@@ -1,29 +1,26 @@
-import React from "react";
 import { TrendingUp, AlertTriangle, CheckCircle2, DollarSign, Clock, Building2, FileCheck2, BarChart2 } from "lucide-react";
 
 export default function WinProbabilityCard({ scoreData }) {
   if (!scoreData) return null;
 
   const { stats, budget, responseTimeHrs, sector, prediction } = scoreData;
-  const isWin = prediction?.prediction === "Win" || (prediction?.winProbability && prediction.winProbability >= 50);
-  const winPercentage = Math.round(
-    typeof prediction?.winProbability === "number"
-      ? prediction.winProbability
-      : prediction?.prediction === "Win"
-      ? 75
-      : 25
-  );
+  
+  const rawProb = prediction?.winProbability;
+  const normalizedProb = typeof rawProb === "number"
+    ? (rawProb <= 1.0 ? rawProb * 100 : rawProb)
+    : (prediction?.prediction === "Win" ? 75 : 25);
+  
+  const winPercentage = Math.round(normalizedProb);
+  const isWin = prediction?.prediction === "Win" || winPercentage >= 50;
+
 
   return (
     <div className="rounded-2xl border border-slate-800 bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 p-6 space-y-6 shadow-xl relative overflow-hidden">
-      {/* Glow Effect */}
       <div
         className={`absolute -top-24 -right-24 w-60 h-60 rounded-full blur-3xl opacity-20 pointer-events-none ${
           isWin ? "bg-emerald-500" : "bg-rose-500"
         }`}
       />
-
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <div className="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
@@ -47,7 +44,6 @@ export default function WinProbabilityCard({ scoreData }) {
         </span>
       </div>
 
-      {/* Main Gauge / Progress Bar */}
       <div className="space-y-2">
         <div className="flex items-baseline justify-between">
           <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
@@ -74,7 +70,6 @@ export default function WinProbabilityCard({ scoreData }) {
         </div>
       </div>
 
-      {/* Metrics Breakdown Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2 border-t border-slate-800/80">
         <div className="bg-slate-950/60 border border-slate-800/80 p-3 rounded-xl space-y-1">
           <div className="flex items-center gap-1.5 text-slate-400 text-xs">

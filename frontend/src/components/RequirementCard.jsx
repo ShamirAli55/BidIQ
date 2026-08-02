@@ -45,7 +45,6 @@ export default function RequirementCard({ match }) {
 
   return (
     <div className="rounded-xl border border-slate-800 bg-slate-900/40 hover:bg-slate-900/70 transition-all overflow-hidden">
-      {/* Summary Header Row */}
       <div
         onClick={() => setExpanded(!expanded)}
         className="p-4 flex items-start sm:items-center justify-between gap-4 cursor-pointer select-none"
@@ -103,8 +102,6 @@ export default function RequirementCard({ match }) {
           </button>
         </div>
       </div>
-
-      {/* Expanded Detail Panel */}
       {expanded && (
         <div className="px-4 pb-4 pt-2 border-t border-slate-800/80 bg-slate-950/40 text-xs space-y-3">
           {isRag ? (

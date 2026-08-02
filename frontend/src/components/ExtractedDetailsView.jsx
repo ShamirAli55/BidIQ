@@ -29,7 +29,6 @@ export default function ExtractedDetailsView({ extraction, document }) {
 
   return (
     <div className="space-y-6">
-      {/* RFP Overview Grid */}
       <div className="border border-slate-800 rounded-xl bg-slate-900 p-5 space-y-4">
         <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
           RFP Document Information Summary
@@ -81,10 +80,7 @@ export default function ExtractedDetailsView({ extraction, document }) {
           </div>
         </div>
       </div>
-
-      {/* Structured Requirements Sections */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Mandatory Requirements */}
         <div className="border border-slate-800 rounded-xl bg-slate-900 p-5 space-y-3">
           <div className="flex items-center gap-2 text-xs font-bold text-slate-200 border-b border-slate-800 pb-2">
             <CheckSquare className="w-4 h-4 text-emerald-400" />
@@ -103,8 +99,6 @@ export default function ExtractedDetailsView({ extraction, document }) {
             )}
           </ul>
         </div>
-
-        {/* Technical Requirements */}
         <div className="border border-slate-800 rounded-xl bg-slate-900 p-5 space-y-3">
           <div className="flex items-center gap-2 text-xs font-bold text-slate-200 border-b border-slate-800 pb-2">
             <Layers className="w-4 h-4 text-indigo-400" />
@@ -123,8 +117,6 @@ export default function ExtractedDetailsView({ extraction, document }) {
             )}
           </ul>
         </div>
-
-        {/* Financial Requirements */}
         <div className="border border-slate-800 rounded-xl bg-slate-900 p-5 space-y-3">
           <div className="flex items-center gap-2 text-xs font-bold text-slate-200 border-b border-slate-800 pb-2">
             <DollarSign className="w-4 h-4 text-amber-400" />
@@ -143,8 +135,6 @@ export default function ExtractedDetailsView({ extraction, document }) {
             )}
           </ul>
         </div>
-
-        {/* Deliverables & Submission Docs */}
         <div className="border border-slate-800 rounded-xl bg-slate-900 p-5 space-y-3">
           <div className="flex items-center gap-2 text-xs font-bold text-slate-200 border-b border-slate-800 pb-2">
             <FileCheck2 className="w-4 h-4 text-cyan-400" />

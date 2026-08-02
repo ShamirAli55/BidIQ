@@ -29,7 +29,6 @@ export function DashboardSkeleton() {
 export function WorkspaceSkeleton() {
   return (
     <div className="space-y-6 animate-pulse">
-      {/* Header Skeleton */}
       <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 space-y-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-2">
@@ -50,8 +49,6 @@ export function WorkspaceSkeleton() {
           ))}
         </div>
       </div>
-
-      {/* Stats Cards Skeleton */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[1, 2, 3, 4].map((i) => (
           <div
@@ -66,8 +63,6 @@ export function WorkspaceSkeleton() {
           </div>
         ))}
       </div>
-
-      {/* Requirements List Skeleton */}
       <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6 space-y-4">
         <div className="h-6 w-48 bg-slate-800 rounded animate-shimmer" />
         {[1, 2, 3, 4].map((i) => (
