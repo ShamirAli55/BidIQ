@@ -18,7 +18,6 @@ export default function Navbar() {
   return (
     <header className="sticky top-0 z-40 border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-md">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-13 flex items-center justify-between">
-        {/* Brand logo & nav link */}
         <div className="flex items-center gap-6">
           <Link to="/" className="flex items-center gap-2 group">
             <div className="w-7 h-7 rounded-lg bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center font-bold text-xs text-indigo-400 group-hover:bg-indigo-600/30 transition-colors">
@@ -44,8 +43,6 @@ export default function Navbar() {
             </nav>
           )}
         </div>
-
-        {/* User profile & Sign Out */}
         {user && (
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-2 bg-slate-900/90 border border-slate-800/80 px-2.5 py-1 rounded-md text-xs text-slate-300">

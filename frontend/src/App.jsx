@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import { useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import { useAuthStore } from "./stores/authStore";
@@ -17,7 +17,6 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      {/* Toast Notification Container */}
       <Toaster
         position="top-right"
         toastOptions={{

@@ -46,11 +46,9 @@ export default function SignupPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col justify-center items-center p-4 relative overflow-hidden">
-      {/* Background glow */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-indigo-600/10 rounded-full blur-3xl pointer-events-none" />
 
       <div className="w-full max-w-md space-y-8 relative z-10">
-        {/* Brand Header */}
         <div className="text-center space-y-3">
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-cyan-400 p-0.5 shadow-xl shadow-indigo-500/20">
             <div className="w-full h-full bg-slate-950 rounded-[14px] flex items-center justify-center">
@@ -64,11 +62,8 @@ export default function SignupPage() {
             Start automating your RFP response analysis & proposal generation
           </p>
         </div>
-
-        {/* Centered Auth Card */}
         <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-8 shadow-2xl backdrop-blur-xl space-y-6">
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Email Field */}
             <div className="space-y-1.5">
               <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider">
                 Email Address
@@ -99,8 +94,6 @@ export default function SignupPage() {
                 </p>
               )}
             </div>
-
-            {/* Password Field */}
             <div className="space-y-1.5">
               <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider">
                 Password
@@ -131,8 +124,6 @@ export default function SignupPage() {
                 </p>
               )}
             </div>
-
-            {/* Confirm Password Field */}
             <div className="space-y-1.5">
               <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider">
                 Confirm Password
@@ -164,8 +155,6 @@ export default function SignupPage() {
                 </p>
               )}
             </div>
-
-            {/* Submit Button */}
             <button
               type="submit"
               disabled={loading}
@@ -184,8 +173,6 @@ export default function SignupPage() {
               )}
             </button>
           </form>
-
-          {/* Toggle / Redirect to Login */}
           <div className="pt-4 border-t border-slate-800/80 text-center">
             <p className="text-xs text-slate-400">
               Already have an account?{" "}

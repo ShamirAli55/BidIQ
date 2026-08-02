@@ -57,7 +57,6 @@ export default function ComplianceMatrixTable({ matches = [], matchSummary = {} 
 
   return (
     <div className="space-y-4">
-      {/* Table Toolbar & Filters */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900 border border-slate-800 p-3 rounded-xl">
         <div className="flex items-center gap-1.5 overflow-x-auto">
           <button
@@ -113,8 +112,6 @@ export default function ComplianceMatrixTable({ matches = [], matchSummary = {} 
           />
         </div>
       </div>
-
-      {/* Formal B2B Compliance Matrix Table */}
       <div className="border border-slate-800 rounded-xl bg-slate-900 overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
@@ -172,8 +169,6 @@ export default function ComplianceMatrixTable({ matches = [], matchSummary = {} 
                           )}
                         </td>
                       </tr>
-
-                      {/* Expandable Justification / Capability Record */}
                       {isExpanded && (
                         <tr className="bg-slate-950/60 border-b border-slate-800">
                           <td colSpan={5} className="p-4 space-y-2 text-xs">

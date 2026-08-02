@@ -24,7 +24,6 @@ export default function DraftSectionCard({ draft, index }) {
 
   return (
     <div className="rounded-xl border border-slate-800 bg-slate-900/50 hover:border-slate-700/80 transition-all p-5 space-y-3">
-      {/* Header Info */}
       <div className="flex items-start sm:items-center justify-between gap-3 pb-3 border-b border-slate-800/80">
         <div className="flex items-center gap-2">
           <span className="w-6 h-6 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center text-xs font-bold">
@@ -75,16 +74,12 @@ export default function DraftSectionCard({ draft, index }) {
           </button>
         </div>
       </div>
-
-      {/* Target Requirement */}
       {draft.requirementText && (
         <div className="text-xs text-slate-400 bg-slate-950/60 p-2.5 rounded-lg border border-slate-800/80">
           <span className="font-semibold text-slate-300">Target Requirement: </span>
           {draft.requirementText}
         </div>
       )}
-
-      {/* Paragraph Editor / Display */}
       {isEditing ? (
         <textarea
           value={text}

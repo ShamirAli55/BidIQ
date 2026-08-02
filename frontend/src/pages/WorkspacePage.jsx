@@ -118,9 +118,7 @@ export default function WorkspacePage() {
       <Navbar />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-5">
-        {/* Sleek Workspace Header */}
         <div className="bg-slate-900/90 border border-slate-800/90 rounded-xl p-5 space-y-4 shadow-sm">
-          {/* Breadcrumb & Document Switcher */}
           <div className="flex flex-wrap items-center justify-between gap-3 text-xs border-b border-slate-800/80 pb-3">
             <div className="flex items-center gap-2 text-slate-400">
               <Link
@@ -135,8 +133,6 @@ export default function WorkspacePage() {
                 {document.originalName}
               </span>
             </div>
-
-            {/* Document Switcher Dropdown */}
             <div className="flex items-center gap-2">
               <span className="text-[11px] text-slate-500 font-medium">Switch Workspace:</span>
               <select
@@ -152,8 +148,6 @@ export default function WorkspacePage() {
               </select>
             </div>
           </div>
-
-          {/* Main Title & Action Pipeline */}
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div className="space-y-1">
               <h1 className="text-lg sm:text-xl font-bold text-white tracking-tight">
@@ -166,8 +160,6 @@ export default function WorkspacePage() {
                 </p>
               )}
             </div>
-
-            {/* Clean Pipeline Action Buttons */}
             <div className="flex flex-wrap items-center gap-2">
               <button
                 onClick={handleExtract}
@@ -213,8 +205,6 @@ export default function WorkspacePage() {
             </div>
           </div>
         </div>
-
-        {/* Clean Metrics Summary Strip */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <div className="bg-slate-900/70 border border-slate-800/80 p-3 rounded-xl space-y-0.5">
             <span className="text-[11px] text-slate-400 font-medium block">Total Requirements</span>
@@ -236,8 +226,6 @@ export default function WorkspacePage() {
             <span className="text-base font-bold text-amber-400 font-mono">{matchSummary.needsReview}</span>
           </div>
         </div>
-
-        {/* Section Tabs */}
         <div className="border-b border-slate-800/80 flex items-center gap-1 overflow-x-auto text-xs font-semibold">
           <button
             onClick={() => setActiveSection("overview")}
@@ -287,8 +275,6 @@ export default function WorkspacePage() {
             <span>Bid Score & Win Probability</span>
           </button>
         </div>
-
-        {/* Tab Content */}
         <div className="pt-2">
           {activeSection === "overview" && (
             <ExtractedDetailsView extraction={extraction} document={document} />

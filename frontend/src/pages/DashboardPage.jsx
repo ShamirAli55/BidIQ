@@ -34,7 +34,6 @@ export default function DashboardPage() {
       <Navbar />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-        {/* Top Banner Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-slate-900 via-indigo-950/40 to-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl relative overflow-hidden">
           <div className="space-y-1 z-10">
             <div className="flex items-center gap-2">
@@ -68,8 +67,6 @@ export default function DashboardPage() {
             </button>
           </div>
         </div>
-
-        {/* Search Bar */}
         <div className="flex items-center justify-between gap-4">
           <div className="relative flex-1 max-w-md">
             <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
@@ -84,8 +81,6 @@ export default function DashboardPage() {
             />
           </div>
         </div>
-
-        {/* Content Section: Skeletons vs Empty State vs Grid */}
         {loading ? (
           <DashboardSkeleton />
         ) : filteredDocuments.length === 0 ? (
