@@ -8,7 +8,7 @@ function App()
     const formdata = new FormData();
 
     formdata.append('rfpFile',file);
-    const res = await fetch('http://localhost:5000/api/upload/pdf',{
+    const res = await fetch('http://localhost:5000/api/documents/upload',{
       method:'POST',
       body:formdata
     });
