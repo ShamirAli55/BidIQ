@@ -24,7 +24,9 @@ export const signup = async (req, res) => {
     }
 
     if (password.length < 6) {
-      return res.status(400).json({ error: "Password must be at least 6 characters long" });
+      return res
+        .status(400)
+        .json({ error: "Password must be at least 6 characters long" });
     }
 
     const existingUser = await User.findOne({ email: trimmedEmail });
@@ -74,11 +76,9 @@ export const login = async (req, res) => {
     }
 
     const secret = process.env.JWT_SECRET || "bidiq_secret_key_2026";
-    const token = jwt.sign(
-      { userId: user._id, email: user.email },
-      secret,
-      { expiresIn: "7d" }
-    );
+    const token = jwt.sign({ userId: user._id, email: user.email }, secret, {
+      expiresIn: "7d",
+    });
 
     res.cookie("token", token, COOKIE_OPTIONS);
 
