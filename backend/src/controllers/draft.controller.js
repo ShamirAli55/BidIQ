@@ -1,64 +1,72 @@
 import Match from "../models/Match.js";
 import DraftSection from "../models/DraftSection.js";
-import {
-  generateDraftSection,
-  generateComplianceStatement,
-} from "../utils/rfpAnalysis.js";
+import { generateDraftsBatch } from "../utils/rfpAnalysis.js";
 
-/**
- * POST /api/extractions/:id/draft
- * Generates proposal draft sections for matched capabilities and passed facts.
- */
 export const generateDrafts = async (req, res) => {
   try {
+    const extractionId = req.params.id;
+
+    await DraftSection.deleteMany({ extraction: extractionId });
+
     const ragMatches = await Match.find({
-      extraction: req.params.id,
+      extraction: extractionId,
       status: "matched",
     });
     const passedFacts = await Match.find({
-      extraction: req.params.id,
+      extraction: extractionId,
       status: "pass",
     });
-    const drafts = [];
+
+    const draftTasks = [];
 
     for (const m of ragMatches) {
       const topCapability = m.matchedCapabilities[0];
       if (!topCapability) continue;
 
-      const draftText = await generateDraftSection(
-        m.requirementText,
-        topCapability.documentText
-      );
-
-      drafts.push(
-        await DraftSection.create({
-          extraction: req.params.id,
-          requirementText: m.requirementText,
-          draftText: draftText.trim(),
-          basedOnCapability: topCapability.capId,
-          source: "rag",
-        })
-      );
+      draftTasks.push({
+        type: "experience",
+        requirementText: m.requirementText,
+        evidenceText: topCapability.documentText,
+        basedOnCapability: topCapability.capId,
+        source: "rag",
+      });
     }
 
     for (const m of passedFacts) {
-      const draftText = await generateComplianceStatement(
-        m.requirementText,
-        m.factCheckResult.reason
-      );
-
-      drafts.push(
-        await DraftSection.create({
-          extraction: req.params.id,
-          requirementText: m.requirementText,
-          draftText: draftText.trim(),
-          basedOnCapability: null,
-          source: "fact_check",
-        })
-      );
+      draftTasks.push({
+        type: "fact",
+        requirementText: m.requirementText,
+        evidenceText: m.factCheckResult.reason,
+        basedOnCapability: null,
+        source: "fact_check",
+      });
     }
 
-    res.json({ count: drafts.length, drafts });
+    if (draftTasks.length === 0) {
+      return res.json({ count: 0, drafts: [] });
+    }
+
+    console.log(`[Batch Draft] Generating ${draftTasks.length} draft paragraphs in a single batch LLM call...`);
+    const results = await generateDraftsBatch(draftTasks);
+
+    const draftsToSave = [];
+    for (let i = 0; i < draftTasks.length; i++) {
+      const task = draftTasks[i];
+      const draftResult = results[i];
+
+      draftsToSave.push({
+        extraction: extractionId,
+        requirementText: task.requirementText,
+        draftText: draftResult?.draftText || "",
+        basedOnCapability: task.basedOnCapability,
+        source: task.source,
+      });
+    }
+
+    const savedDrafts = await DraftSection.insertMany(draftsToSave);
+    console.log(`[Batch Draft] Completed generating drafts. Saved ${savedDrafts.length} response sections.`);
+
+    res.json({ count: savedDrafts.length, drafts: savedDrafts });
   } catch (err) {
     console.error("Draft generation error:", err);
     res.status(500).json({ error: "Draft generation failed" });

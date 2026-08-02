@@ -4,14 +4,10 @@ import CompanyProfile from "../models/CompanyProfile.js";
 import {
   ragMatch,
   normalizeMatchStatus,
-  classifyRequirement,
-  factCheckRequirement,
+  classifyRequirementsBatch,
+  factCheckRequirementsBatch,
 } from "../utils/rfpAnalysis.js";
 
-/**
- * POST /api/extractions/:id/match
- * Matches requirements against vector capabilities and company profile facts.
- */
 export const matchExtraction = async (req, res) => {
   try {
     const extraction = await Extraction.findById(req.params.id);
@@ -21,7 +17,8 @@ export const matchExtraction = async (req, res) => {
     const companyProfile = await CompanyProfile.findOne();
     const matches = [];
 
-    // 1. Technical Requirements -> RAG matching
+    await Match.deleteMany({ extraction: extraction._id });
+
     for (const text of extraction.technicalRequirements) {
       const result = await ragMatch(text, "technical");
       matches.push(
@@ -33,7 +30,6 @@ export const matchExtraction = async (req, res) => {
       );
     }
 
-    // 2. Mandatory & Financial Requirements -> Classify & Check
     const toClassify = [
       ...extraction.mandatoryRequirements.map((text) => ({
         text,
@@ -45,10 +41,24 @@ export const matchExtraction = async (req, res) => {
       })),
     ];
 
-    for (const reqItem of toClassify) {
-      const category = await classifyRequirement(reqItem.text);
+    if (toClassify.length > 0) {
+      const classifications = await classifyRequirementsBatch(
+        toClassify.map((item) => item.text)
+      );
 
-      if (category === "experience") {
+      const experienceItems = [];
+      const factItems = [];
+
+      toClassify.forEach((item, index) => {
+        const category = classifications[index]?.category || "experience";
+        if (category === "experience") {
+          experienceItems.push(item);
+        } else {
+          factItems.push(item);
+        }
+      });
+
+      for (const reqItem of experienceItems) {
         const result = await ragMatch(reqItem.text, reqItem.type);
         matches.push(
           await Match.create({
@@ -57,18 +67,32 @@ export const matchExtraction = async (req, res) => {
             ...result,
           })
         );
-      } else {
-        const result = await factCheckRequirement(reqItem.text, companyProfile);
-        matches.push(
-          await Match.create({
-            extraction: extraction._id,
-            requirementText: reqItem.text,
-            requirementType: reqItem.type,
-            method: "fact_check",
-            factCheckResult: result,
-            status: normalizeMatchStatus(result.verdict),
-          })
+      }
+
+      if (factItems.length > 0) {
+        const factResults = await factCheckRequirementsBatch(
+          factItems.map((item) => item.text),
+          companyProfile
         );
+
+        for (let i = 0; i < factItems.length; i++) {
+          const reqItem = factItems[i];
+          const result = factResults[i] || {
+            verdict: "INSUFFICIENT_DATA",
+            reason: "Batch fact check default fallback",
+          };
+
+          matches.push(
+            await Match.create({
+              extraction: extraction._id,
+              requirementText: reqItem.text,
+              requirementType: reqItem.type,
+              method: "fact_check",
+              factCheckResult: result,
+              status: normalizeMatchStatus(result.verdict),
+            })
+          );
+        }
       }
     }
 

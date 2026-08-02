@@ -4,10 +4,6 @@ import Match from "../models/Match.js";
 import { classifySector } from "../utils/rfpAnalysis.js";
 import { computeBidStats, parseBudget } from "../utils/bidUtils.js";
 
-/**
- * GET /api/extractions/:id/score
- * Calculates bid statistics and predicts win probability.
- */
 export const scoreBid = async (req, res) => {
   try {
     const extraction = await Extraction.findById(req.params.id);

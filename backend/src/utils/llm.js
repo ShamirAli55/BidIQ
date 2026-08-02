@@ -1,23 +1,9 @@
 import ollama from "ollama";
 
-/**
- * Centralized Flexible LLM Dispatcher for BidIQ Backend.
- * Allows task-based or per-call provider selection:
- *   - Extraction & Scoring -> OpenRouter
- *   - Draft Generation    -> HuggingFace (with automatic fallback)
- *   - Matching            -> Local Ollama
- *
- * Configurable via .env:
- *   EXTRACTION_LLM_PROVIDER: "openrouter"
- *   MATCH_LLM_PROVIDER: "ollama"
- *   DRAFT_LLM_PROVIDER: "huggingface"
- *   SCORE_LLM_PROVIDER: "openrouter"
- */
-
 export async function askOpenRouter(prompt, options = {}) {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
-    throw new Error("OPENROUTER_API_KEY is not configured in .env file.");
+    throw new Error("OPENROUTER_API_KEY is not configured.");
   }
 
   const model = options.model || process.env.OPENROUTER_MODEL || "inclusionai/ling-3.0-flash:free";
@@ -57,18 +43,16 @@ export async function askOllama(prompt, options = {}) {
     });
     return response.message?.content ?? "";
   } catch (err) {
-    console.error(`[LLM] Ollama error with model '${model}':`, err);
     throw new Error(`Ollama error (${model}): ${err.message}`);
   }
 }
 
-export async function askHuggingFace(prompt, options = {}) {
+export async function askHuggingFaceDirect(prompt, options = {}) {
   const apiKey = process.env.HF_API_KEY || process.env.HUGGINGFACE_API_KEY;
   const routerUrl = process.env.HF_ROUTER_URL || "https://router.huggingface.co/v1/chat/completions";
   const model = options.model || process.env.HF_MODEL_DEFAULT || "Qwen/Qwen2.5-7B-Instruct";
 
   try {
-    // Attempt 1: HuggingFace Router v1 Chat Completions (OpenAI Compatible)
     const res = await fetch(routerUrl, {
       method: "POST",
       headers: {
@@ -78,46 +62,41 @@ export async function askHuggingFace(prompt, options = {}) {
       body: JSON.stringify({
         model: model,
         messages: [{ role: "user", content: prompt }],
-        max_tokens: options.max_tokens || 2048,
+        max_tokens: options.max_tokens || 4096,
       }),
     });
 
     const data = await res.json();
-
     if (res.ok && data.choices?.[0]?.message?.content) {
       return data.choices[0].message.content.trim();
     }
-
-    // Attempt 2: Fallback to direct Inference API
-    const inferenceUrl = `${process.env.HF_INFERENCE_URL || "https://api-inference.huggingface.co/models"}/${model}`;
-    const infRes = await fetch(inferenceUrl, {
-      method: "POST",
-      headers: {
-        Authorization: apiKey ? `Bearer ${apiKey}` : undefined,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        inputs: prompt,
-        parameters: { max_new_tokens: 1000, return_full_text: false },
-      }),
-    });
-
-    const infData = await infRes.json();
-
-    if (Array.isArray(infData) && infData[0]?.generated_text) {
-      return infData[0].generated_text.trim();
-    } else if (infData.generated_text) {
-      return infData.generated_text.trim();
-    } else if (infData.choices?.[0]?.message?.content) {
-      return infData.choices[0].message.content.trim();
-    }
-
-    console.warn(`[LLM] HuggingFace endpoint warning, falling back to OpenRouter:`, data || infData);
-    return await askOpenRouter(prompt, options);
-  } catch (err) {
-    console.warn(`[LLM] HuggingFace request failed (${err.message}), falling back to OpenRouter`);
-    return await askOpenRouter(prompt, options);
+  } catch (e) {
+    console.warn(`[LLM] HF Router request failed, trying direct inference: ${e.message}`);
   }
+
+  const inferenceUrl = `${process.env.HF_INFERENCE_URL || "https://api-inference.huggingface.co/models"}/${model}`;
+  const res = await fetch(inferenceUrl, {
+    method: "POST",
+    headers: {
+      Authorization: apiKey ? `Bearer ${apiKey}` : undefined,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      inputs: prompt,
+      parameters: { max_new_tokens: 2048, return_full_text: false },
+    }),
+  });
+
+  const data = await res.json();
+  if (Array.isArray(data) && data[0]?.generated_text) {
+    return data[0].generated_text.trim();
+  } else if (data.generated_text) {
+    return data.generated_text.trim();
+  } else if (data.choices?.[0]?.message?.content) {
+    return data.choices[0].message.content.trim();
+  }
+
+  throw new Error(`HuggingFace API response was unparseable: ${JSON.stringify(data)}`);
 }
 
 export async function askLLM(prompt, options = {}) {
@@ -132,20 +111,40 @@ export async function askLLM(prompt, options = {}) {
     provider = process.env.LLM_PROVIDER || "openrouter";
   }
 
-  provider = provider.toLowerCase().trim();
+  const primaryProvider = provider.toLowerCase().trim();
 
-  if (provider === "ollama" || provider === "local") {
-    const model = options.model || process.env.OLLAMA_MODEL || "phi4-mini:latest";
-    console.log(`[LLM] Dispatching '${options.task || "general"}' to Local Ollama (${model})...`);
-    return await askOllama(prompt, { ...options, model });
-  } else if (provider === "huggingface" || provider === "hf") {
-    console.log(`[LLM] Dispatching '${options.task || "general"}' to HuggingFace Inference...`);
-    return await askHuggingFace(prompt, options);
+  const providersToTry = [];
+  if (primaryProvider === "huggingface" || primaryProvider === "hf") {
+    providersToTry.push("huggingface", "openrouter");
+  } else if (primaryProvider === "ollama" || primaryProvider === "local") {
+    providersToTry.push("ollama", "huggingface", "openrouter");
   } else {
-    const model = options.model || process.env.OPENROUTER_MODEL || "inclusionai/ling-3.0-flash:free";
-    console.log(`[LLM] Dispatching '${options.task || "general"}' to OpenRouter (${model})...`);
-    return await askOpenRouter(prompt, { ...options, model });
+    providersToTry.push("openrouter", "huggingface");
   }
+
+  let finalError = null;
+
+  for (const prov of providersToTry) {
+    try {
+      if (prov === "ollama") {
+        const model = options.model || process.env.OLLAMA_MODEL || "phi4-mini:latest";
+        console.log(`[LLM] Dispatching '${options.task || "general"}' to Local Ollama (${model})...`);
+        return await askOllama(prompt, { ...options, model });
+      } else if (prov === "huggingface") {
+        console.log(`[LLM] Dispatching '${options.task || "general"}' to HuggingFace Inference...`);
+        return await askHuggingFaceDirect(prompt, options);
+      } else {
+        const model = options.model || process.env.OPENROUTER_MODEL || "inclusionai/ling-3.0-flash:free";
+        console.log(`[LLM] Dispatching '${options.task || "general"}' to OpenRouter (${model})...`);
+        return await askOpenRouter(prompt, { ...options, model });
+      }
+    } catch (err) {
+      console.warn(`[LLM] Provider '${prov}' failed: ${err.message}. Trying next available fallback...`);
+      finalError = err;
+    }
+  }
+
+  throw new Error(`All LLM providers failed. Last error: ${finalError?.message}`);
 }
 
 export default askLLM;

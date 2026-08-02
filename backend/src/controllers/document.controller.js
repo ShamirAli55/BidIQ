@@ -9,10 +9,6 @@ import { cleanPdfText, normalizeParagraphs } from "../utils/pdfUtils.js";
 const require = createRequire(import.meta.url);
 const pdfParse = require("pdf-parse");
 
-/**
- * GET /api/documents
- * List all uploaded RFP documents sorted by uploadedAt desc.
- */
 export const listDocuments = async (req, res) => {
   try {
     const documents = await Document.find(
@@ -26,10 +22,6 @@ export const listDocuments = async (req, res) => {
   }
 };
 
-/**
- * GET /api/documents/:id/workspace
- * Retrieves full workspace state: Document, Extraction, Match Summary, Matches, and Drafts.
- */
 export const getWorkspace = async (req, res) => {
   try {
     const document = await Document.findById(req.params.id);
@@ -69,10 +61,6 @@ export const getWorkspace = async (req, res) => {
   }
 };
 
-/**
- * POST /api/documents/upload
- * Process uploaded RFP PDF document, clean text, and save to DB.
- */
 export const pdfUpload = async (req, res) => {
   try {
     if (!req.file) {
