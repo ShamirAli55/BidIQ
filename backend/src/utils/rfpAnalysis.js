@@ -55,7 +55,12 @@ ${text}
 export function normalizeMatchStatus(rawStatus) {
   if (!rawStatus) return "insufficient_data";
   const s = String(rawStatus).toLowerCase().trim();
-  if (["pass", "passed", "success", "successful", "met", "true", "yes"].includes(s)) return "pass";
+  if (
+    ["pass", "passed", "success", "successful", "met", "true", "yes"].includes(
+      s,
+    )
+  )
+    return "pass";
   if (["fail", "failed", "unmet", "false", "no"].includes(s)) return "fail";
   if (["matched", "match"].includes(s)) return "matched";
   if (["gap"].includes(s)) return "gap";
@@ -125,13 +130,19 @@ Respond ONLY with a valid JSON array of objects in the EXACT same order as the i
       }
     }
   } catch (err) {
-    console.warn("classifyRequirementsBatch error, falling back to defaults:", err.message);
+    console.warn(
+      "classifyRequirementsBatch error, falling back to defaults:",
+      err.message,
+    );
   }
 
   return requirementTexts.map(() => ({ category: "experience" }));
 }
 
-export async function factCheckRequirementsBatch(factRequirements, companyProfile) {
+export async function factCheckRequirementsBatch(
+  factRequirements,
+  companyProfile,
+) {
   if (!factRequirements || factRequirements.length === 0) return [];
 
   const itemsFormatted = factRequirements
@@ -170,7 +181,10 @@ Respond ONLY with a valid JSON array of objects in the EXACT same order as the i
       }
     }
   } catch (err) {
-    console.warn("factCheckRequirementsBatch error, falling back to defaults:", err.message);
+    console.warn(
+      "factCheckRequirementsBatch error, falling back to defaults:",
+      err.message,
+    );
   }
 
   return factRequirements.map(() => ({
@@ -194,14 +208,16 @@ Pick the closest match even if imperfect.
     const jsonMatch = raw.match(/\{[\s\S]*?\}/);
     if (!jsonMatch) return "IT Services";
     const parsed = JSON.parse(jsonMatch[0]);
-    return KNOWN_SECTORS.includes(parsed.sector) ? parsed.sector : "IT Services";
+    return KNOWN_SECTORS.includes(parsed.sector)
+      ? parsed.sector
+      : "IT Services";
   } catch (err) {
     console.warn("classifySector JSON parse warning:", err.message);
     return "IT Services";
   }
 }
 
-export async function generateDraftSection(requirementText, capabilityText) {
+async function generateDraftSection(requirementText, capabilityText) {
   const prompt = `
 Write a short, professional proposal paragraph (3-4 sentences) responding to this RFP requirement, using the past project experience below as supporting evidence. Write in first person plural ("our team," "we"). Do not invent facts beyond what's given.
 
@@ -216,7 +232,10 @@ Return ONLY the paragraph text, no headers, no JSON.
   return await askLLM(prompt, { task: "draft" });
 }
 
-export async function generateComplianceStatement(requirementText, factCheckReason) {
+async function generateComplianceStatement(
+  requirementText,
+  factCheckReason,
+) {
   const prompt = `
 Write one short, professional sentence for a proposal document confirming compliance with this requirement, based on the fact given. Write in first person plural ("we," "our firm"). Do not invent details beyond what's stated.
 
@@ -275,7 +294,10 @@ Confirm requirements are answered exactly in the specified order. Respond ONLY w
       }
     }
   } catch (err) {
-    console.warn("generateDraftsBatch error, falling back to individual generation:", err.message);
+    console.warn(
+      "generateDraftsBatch error, falling back to individual generation:",
+      err.message,
+    );
   }
 
   const results = [];
@@ -283,12 +305,22 @@ Confirm requirements are answered exactly in the specified order. Respond ONLY w
     let text = "";
     try {
       if (task.type === "experience") {
-        text = await generateDraftSection(task.requirementText, task.evidenceText);
+        text = await generateDraftSection(
+          task.requirementText,
+          task.evidenceText,
+        );
       } else {
-        text = await generateComplianceStatement(task.requirementText, task.evidenceText);
+        text = await generateComplianceStatement(
+          task.requirementText,
+          task.evidenceText,
+        );
       }
     } catch (e) {
-      console.error("Individual fallback draft generation failed for item:", task.requirementText, e);
+      console.error(
+        "Individual fallback draft generation failed for item:",
+        task.requirementText,
+        e,
+      );
     }
     results.push({ draftText: text.trim() });
   }

@@ -1,12 +1,16 @@
 import ollama from "ollama";
 
+const DEFAULT_OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || "inclusionai/ling-3.0-flash:free";
+const DEFAULT_OLLAMA_MODEL = process.env.OLLAMA_MODEL || "phi4-mini:latest";
+const DEFAULT_HF_MODEL = process.env.HF_MODEL_DEFAULT || "Qwen/Qwen2.5-7B-Instruct";
+
 export async function askOpenRouter(prompt, options = {}) {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
     throw new Error("OPENROUTER_API_KEY is not configured.");
   }
 
-  const model = options.model || process.env.OPENROUTER_MODEL || "inclusionai/ling-3.0-flash:free";
+  const model = options.model || DEFAULT_OPENROUTER_MODEL;
 
   const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
@@ -34,7 +38,7 @@ export async function askOpenRouter(prompt, options = {}) {
 }
 
 export async function askOllama(prompt, options = {}) {
-  const model = options.model || process.env.OLLAMA_MODEL || "phi4-mini:latest";
+  const model = options.model || DEFAULT_OLLAMA_MODEL;
 
   try {
     const response = await ollama.chat({
@@ -50,7 +54,7 @@ export async function askOllama(prompt, options = {}) {
 export async function askHuggingFaceDirect(prompt, options = {}) {
   const apiKey = process.env.HF_API_KEY || process.env.HUGGINGFACE_API_KEY;
   const routerUrl = process.env.HF_ROUTER_URL || "https://router.huggingface.co/v1/chat/completions";
-  const model = options.model || process.env.HF_MODEL_DEFAULT || "Qwen/Qwen2.5-7B-Instruct";
+  const model = options.model || DEFAULT_HF_MODEL;
 
   try {
     const res = await fetch(routerUrl, {
@@ -127,14 +131,14 @@ export async function askLLM(prompt, options = {}) {
   for (const prov of providersToTry) {
     try {
       if (prov === "ollama") {
-        const model = options.model || process.env.OLLAMA_MODEL || "phi4-mini:latest";
+        const model = options.model || DEFAULT_OLLAMA_MODEL;
         console.log(`[LLM] Dispatching '${options.task || "general"}' to Local Ollama (${model})...`);
         return await askOllama(prompt, { ...options, model });
       } else if (prov === "huggingface") {
         console.log(`[LLM] Dispatching '${options.task || "general"}' to HuggingFace Inference...`);
         return await askHuggingFaceDirect(prompt, options);
       } else {
-        const model = options.model || process.env.OPENROUTER_MODEL || "inclusionai/ling-3.0-flash:free";
+        const model = options.model || DEFAULT_OPENROUTER_MODEL;
         console.log(`[LLM] Dispatching '${options.task || "general"}' to OpenRouter (${model})...`);
         return await askOpenRouter(prompt, { ...options, model });
       }
