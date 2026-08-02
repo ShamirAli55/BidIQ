@@ -4,7 +4,10 @@
 export function computeBidStats(matches, docPages) {
   const total = matches.length;
   const gaps = matches.filter(
-    (m) => m.status === "gap" || m.status === "fail",
+    (m) =>
+      m.status === "gap" ||
+      m.status === "fail" ||
+      m.status === "insufficient_data",
   ).length;
   const passedOrMatched = matches.filter(
     (m) => m.status === "matched" || m.status === "pass",
