@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import chromadb
 import ollama
@@ -12,15 +12,19 @@ chroma_client = chromadb.PersistentClient(path="./chroma_store/")
 chroma_collection = chroma_client.get_or_create_collection(name="capabilities")
 
 def embedding(text):
-    response = ollama.embeddings(model='nomic-embed-text:latest', prompt=text)
-    return response['embedding']
+    # ollama>=0.2.0 uses embed() instead of the removed embeddings()
+    response = ollama.embed(model='nomic-embed-text:latest', input=text)
+    return response['embeddings'][0]
 
 class MatchRequest(BaseModel):
     requirementText: str
 
 @app.post("/match")
 def match_requirement(req: MatchRequest):
-    vector = embedding(req.requirementText)
+    try:
+        vector = embedding(req.requirementText)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Embedding failed: {str(e)}")
     results = chroma_collection.query(query_embeddings=[vector], n_results=3)
     return results
 
