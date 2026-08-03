@@ -39,11 +39,19 @@ export const getWorkspace = async (req, res) => {
       drafts = await DraftSection.find({ extraction: extraction._id });
     }
 
+    // If compliance hasn't been run yet, derive total from the extraction arrays
+    // so the counter isn't 0 right after extraction.
+    const extractedTotal = extraction
+      ? (extraction.mandatoryRequirements?.length || 0) +
+        (extraction.technicalRequirements?.length || 0) +
+        (extraction.financialRequirements?.length || 0)
+      : 0;
+
     res.json({
       document,
       extraction,
       matchSummary: {
-        total: matches.length,
+        total: matches.length > 0 ? matches.length : extractedTotal,
         matched: matches.filter(
           (m) => m.status === "matched" || m.status === "pass"
         ).length,

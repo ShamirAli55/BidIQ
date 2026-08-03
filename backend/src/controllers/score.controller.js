@@ -18,10 +18,15 @@ export const scoreBid = async (req, res) => {
         .json({ error: "No matches found for this extraction" });
 
     const stats = computeBidStats(matches, document.pageCount || 0);
-    const responseTimeHrs = Math.round(
+    const rawResponseTimeHrs = Math.round(
       (Date.now() - (document.uploadedAt || Date.now())) / (1000 * 60 * 60)
     );
-    const budget = parseBudget(extraction.estimatedBudget);
+    // Use at least 24 hrs so the model isn't fed a zero for freshly-uploaded docs
+    const responseTimeHrs = rawResponseTimeHrs < 1 ? 24 : rawResponseTimeHrs;
+    const parsedBudget = parseBudget(extraction.estimatedBudget);
+    // Use a typical mid-range budget fallback (~50M) when RFP doesn't state one,
+    // so the model scores on compliance/gaps rather than defaulting to Loss.
+    const budget = parsedBudget > 0 ? parsedBudget : 50000000;
     const sector = await classifySector(
       extraction.title,
       extraction.organization
@@ -41,7 +46,13 @@ export const scoreBid = async (req, res) => {
     });
 
     const result = await response.json();
-    res.json({ stats, budget, responseTimeHrs, sector, prediction: result });
+    res.json({
+      stats,
+      budget: parsedBudget > 0 ? parsedBudget : null, // null = not stated in RFP
+      responseTimeHrs: rawResponseTimeHrs,             // show real elapsed time in UI
+      sector,
+      prediction: result,
+    });
   } catch (err) {
     console.error("Scoring error:", err);
     res.status(500).json({ error: "Scoring failed" });
