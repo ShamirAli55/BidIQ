@@ -52,18 +52,40 @@ BidIQ is a full-stack B2B SaaS platform that automates the entire bid response l
 ## System Architecture
 
 ```mermaid
-flowchart TD
-    Browser["🌐 Browser Client\nReact 19 + Zustand + TailwindCSS v4"]
+flowchart LR
+    classDef frontend fill:#1e3a5f,stroke:#3b82f6,color:#e0f2fe
+    classDef backend fill:#1a2e1a,stroke:#22c55e,color:#dcfce7
+    classDef db fill:#2e1a1a,stroke:#f87171,color:#fee2e2
+    classDef ai fill:#2e1a3a,stroke:#a855f7,color:#f3e8ff
+    classDef util fill:#1e2a3a,stroke:#64748b,color:#cbd5e1
 
-    Backend["⚙️ Node.js / Express Backend\n\ndocument.controller → PDF upload & workspace\nextraction.controller → LLM requirement extraction\nmatch.controller → RAG + fact-check matching\ndraft.controller → Batch proposal draft generation\nscore.controller → Bid scoring & win probability\nauth.controller → JWT cookie authentication\ncompanyProfile.controller → Company profile management\n\nUtils: llm.js · rfpAnalysis.js · pdfUtils.js · bidUtils.js · aiService.js"]
+    subgraph FE ["  Frontend  —  port 5173  "]
+        direction TB
+        UI["WorkspacePage.jsx\nDashboardPage.jsx\nLoginPage.jsx"]
+        Store["workspaceStore.js\ndocumentStore.js\nauthStore.js\n— Zustand v5"]
+        UI --> Store
+    end
 
-    MongoDB[("🗄️ MongoDB Atlas\n\nDocument\nExtraction\nMatch\nDraftSection\nUser\nCompanyProfile\nCapability")]
+    subgraph BE ["  Backend  —  Node.js / Express  —  port 5000  "]
+        direction TB
+        Controllers["document.controller\nextraction.controller\nmatch.controller\ndraft.controller\nscore.controller\nauth.controller\ncompanyProfile.controller"]
+        Utils["llm.js — multi-provider dispatcher\nrfpAnalysis.js — prompts + batch logic\npdfUtils.js — PDF cleaning\nbidUtils.js — compliance + budget\naiService.js — AI service client"]
+        Controllers --> Utils
+    end
 
-    AIService["🐍 Python AI Service\nFastAPI + ChromaDB\n\nPOST /match\n→ nomic-embed-text embeddings\n→ ChromaDB vector similarity search\n\nPOST /predict\n→ scikit-learn Logistic Regression\n→ Win probability output"]
+    subgraph DB ["  MongoDB Atlas  "]
+        Collections["Document · Extraction\nMatch · DraftSection\nUser · CompanyProfile · Capability"]
+    end
 
-    Browser -- "HTTP REST (httpOnly cookies)" --> Backend
-    Backend -- "Mongoose / MongoDB Atlas" --> MongoDB
-    Backend -- "HTTP (port 8000)" --> AIService
+    subgraph AI ["  Python AI Service  —  port 8000  "]
+        direction TB
+        Match["POST /match\nOllama nomic-embed-text\nChromaDB vector search"]
+        Predict["POST /predict\nscikit-learn LogisticRegression\n+ StandardScaler"]
+    end
+
+    FE -- "HTTP REST\nhttpOnly cookies" --> BE
+    BE -- "Mongoose\nMongoDB Atlas" --> DB
+    BE -- "HTTP" --> AI
 ```
 
 ---
@@ -413,33 +435,72 @@ If the primary provider fails (network timeout, rate limit, API error), the syst
 
 ```mermaid
 flowchart TD
-    A(["📄 PDF Upload"])
-    B["🧹 Text Clean + Normalize\npdfUtils.js"]
-    C["🤖 LLM Requirement Extraction\n1 LLM call — OpenRouter\n\nOutputs: title · org · deadline\nmandatory · technical · financial\nrequirements · deliverables · docs"]
+    classDef input fill:#0f2027,stroke:#38bdf8,color:#e0f2fe
+    classDef process fill:#0f1f0f,stroke:#4ade80,color:#dcfce7
+    classDef llm fill:#1a0f2e,stroke:#a78bfa,color:#ede9fe
+    classDef rag fill:#1a1a0f,stroke:#facc15,color:#fef9c3
+    classDef output fill:#1f0f0f,stroke:#f87171,color:#fee2e2
+    classDef score fill:#0f1a2e,stroke:#60a5fa,color:#dbeafe
 
-    A --> B --> C
+    PDF(["PDF Upload"])
+    Clean["pdf-parse + pdfUtils.js\nClean & normalize raw text"]
 
-    C --> D["🔧 Technical Requirements"]
-    C --> E["📋 Mandatory + Financial Requirements"]
+    PDF --> Clean
 
-    D --> D1["🔍 RAG Vector Search\nChromaDB per requirement\n→ status: matched or gap"]
+    Clean --> Extract
 
-    E --> F["🏷️ Batch Classification\n1 LLM call — HuggingFace\n→ fact or experience per item"]
+    subgraph Extract [" Step 1 — Requirement Extraction  ·  1 LLM call &#40;OpenRouter: ling-3.0-flash&#41; "]
+        direction LR
+        ExtractNode["extraction.controller.js\nbuildExtractionPrompt\n\nOutputs saved to MongoDB Extraction document:\n  · title, organization, rfpNumber, country\n  · submissionDeadline, estimatedBudget\n  · mandatoryRequirements&#91;&#93;\n  · technicalRequirements&#91;&#93;\n  · financialRequirements&#91;&#93;\n  · deliverables&#91;&#93; · requiredDocuments&#91;&#93;"]
+    end
 
-    F --> G["🏆 Experience Items"]
-    F --> H["📌 Fact Items"]
+    Extract --> TechReqs["technicalRequirements&#91;&#93;"]
+    Extract --> MandFin["mandatoryRequirements&#91;&#93;\nfinancialRequirements&#91;&#93;"]
 
-    G --> G1["🔍 RAG Vector Search\nper item\n→ status: matched or gap"]
-    H --> H1["✅ Batch Fact-Check\n1 LLM call — HuggingFace\nvs Company Profile\n→ pass · fail · insufficient_data"]
+    subgraph TechMatch [" Step 2a — RAG Matching  &#40;per technical requirement&#41; "]
+        TechRAG["aiService.js → POST :8000/match\nOllama nomic-embed-text embedding\nChromaDB cosine similarity\n\nIf distance < 350 → matched\nIf distance > 400 → gap"]
+    end
 
-    D1 --> I["✍️ Batch Draft Generation\n1 LLM call — HuggingFace\n\nRAG matches → capability evidence paragraphs\nFact passes → compliance confirmation sentences"]
-    G1 --> I
-    H1 --> I
+    TechReqs --> TechMatch
 
-    I --> J["📊 Bid Scoring"]
-    J --> J1["📐 Compliance % Calculation"]
-    J --> J2["🌐 Sector Classification\n1 LLM call — OpenRouter"]
-    J --> J3["🎯 Win Probability Prediction\nLogistic Regression — scikit-learn AI service"]
+    subgraph ClassifyStep [" Step 2b — Batch Classification  ·  1 LLM call &#40;HuggingFace: Qwen2.5-7B&#41; "]
+        ClassifyNode["classifyRequirementsBatch\nEach requirement labelled:\n  fact  — verifiable company attribute\n  experience  — past project evidence required"]
+    end
+
+    MandFin --> ClassifyStep
+
+    ClassifyStep --> ExpItems["Experience items"]
+    ClassifyStep --> FactItems["Fact items"]
+
+    subgraph ExpMatch [" Step 2c — RAG Matching  &#40;experience items&#41; "]
+        ExpRAG["POST :8000/match\nSame vector search as Step 2a\n→ matched or gap"]
+    end
+
+    subgraph FactCheck [" Step 2d — Batch Fact-Check  ·  1 LLM call &#40;HuggingFace: Qwen2.5-7B&#41; "]
+        FactNode["factCheckRequirementsBatch\nvs CompanyProfile document\n\nVerdict per item:\n  PASS · FAIL · INSUFFICIENT_DATA"]
+    end
+
+    ExpItems --> ExpMatch
+    FactItems --> FactCheck
+
+    TechMatch --> Drafts
+    ExpMatch --> Drafts
+    FactCheck --> Drafts
+
+    subgraph Drafts [" Step 3 — Batch Draft Generation  ·  1 LLM call &#40;HuggingFace: Qwen2.5-7B&#41; "]
+        DraftNode["generateDraftsBatch\nFor matched/pass items only:\n  RAG matches → evidence-based proposal paragraphs\n  Fact passes → compliance confirmation sentences\nSaved to MongoDB DraftSection collection"]
+    end
+
+    Drafts --> Scoring
+
+    subgraph Scoring [" Step 4 — Bid Scoring "]
+        direction LR
+        Compliance["bidUtils.js\ncomputeBidStats\ncompliance_percent\ngaps_found · doc_pages"]
+        Sector["classifySector\n1 LLM call — OpenRouter\n→ Education, IT Services,\n  Healthcare, Finance..."]
+        Win["POST :8000/predict\nscikit-learn LogisticRegression\nInput features: budget · response_time\ncompliance_pct · gaps · sector · month\n\nOutput: Win probability 0–1"]
+        Compliance --> Win
+        Sector --> Win
+    end
 ```
 
 > **Total LLM calls per full RFP analysis: ~4–6 calls** (down from 30–40 sequential calls)
