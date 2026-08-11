@@ -43,7 +43,11 @@ export const getWorkspace = async (req, res) => {
       document,
       extraction,
       matchSummary: {
-        total: matches.length,
+        total: matches.length > 0 ? matches.length : (extraction
+          ? (extraction.mandatoryRequirements?.length || 0) +
+            (extraction.technicalRequirements?.length || 0) +
+            (extraction.financialRequirements?.length || 0)
+          : 0),
         matched: matches.filter(
           (m) => m.status === "matched" || m.status === "pass"
         ).length,

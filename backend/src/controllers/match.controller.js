@@ -20,6 +20,7 @@ export const matchExtraction = async (req, res) => {
     await Match.deleteMany({ extraction: extraction._id });
 
     for (const text of extraction.technicalRequirements) {
+      if (!text || !text.trim()) continue;
       const result = await ragMatch(text, "technical");
       matches.push(
         await Match.create({
@@ -31,14 +32,18 @@ export const matchExtraction = async (req, res) => {
     }
 
     const toClassify = [
-      ...extraction.mandatoryRequirements.map((text) => ({
-        text,
-        type: "mandatory",
-      })),
-      ...extraction.financialRequirements.map((text) => ({
-        text,
-        type: "financial",
-      })),
+      ...extraction.mandatoryRequirements
+        .filter((text) => text && text.trim())
+        .map((text) => ({
+          text,
+          type: "mandatory",
+        })),
+      ...extraction.financialRequirements
+        .filter((text) => text && text.trim())
+        .map((text) => ({
+          text,
+          type: "financial",
+        })),
     ];
 
     if (toClassify.length > 0) {
