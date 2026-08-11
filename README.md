@@ -1,8 +1,10 @@
-# BidIQ — AI-Powered Bid & Proposal Response Engine
+# BidIQ
 
-> **Transform raw RFP documents into structured, compliance-checked, AI-drafted proposals in minutes.**
+Responding to RFPs manually is time-consuming. You read through a long document, identify every requirement, figure out which ones your company meets, write a compliance response for each, and then hope your bid scores well enough to win. That whole process — for a single RFP — can easily take days.
 
-BidIQ is a full-stack B2B SaaS platform that automates the entire bid response lifecycle — from PDF ingestion and requirement extraction, to capability matching, compliance matrix generation, proposal drafting, and win probability scoring — all powered by a flexible multi-provider LLM architecture.
+BidIQ automates it. Upload the PDF, and it extracts every requirement, runs each one through a RAG pipeline against your historical bid library, generates draft proposal paragraphs for the ones you match, and scores your overall win probability using a trained ML model.
+
+Three services: a Node.js/Express backend, a React frontend, and a Python FastAPI service for vector search and ML scoring.
 
 ---
 
@@ -26,50 +28,54 @@ BidIQ is a full-stack B2B SaaS platform that automates the entire bid response l
 
 ---
 
-## Features
+## What it does
 
-### Core Pipeline
-| Feature | Description |
+| Step | What happens |
 |---|---|
-| **PDF Upload & Parsing** | Upload any RFP/tender PDF. Text is extracted, cleaned, and normalized automatically. |
-| **LLM Requirement Extraction** | Structured extraction of title, organization, deadlines, mandatory, technical, and financial requirements via a single LLM call. |
-| **RAG Capability Matching** | Vector similarity search against a company capability library using ChromaDB + `nomic-embed-text`. Determines `matched` vs `gap` status per requirement. |
-| **Batch Classification** | Mandatory and financial requirements are classified as `fact` or `experience` in a single batched LLM call, reducing API calls by ~95%. |
-| **Batch Fact-Checking** | All fact-classified requirements are checked against the company profile in a single parallel LLM call. |
-| **Batch Draft Generation** | Proposal response paragraphs and compliance statements generated in one batched LLM interaction. |
-| **Bid Score & Win Probability** | Compliance percentage, gap count, and sector classification fed into a trained logistic regression model for win probability prediction. |
-| **Compliance Matrix** | Formal B2B-grade filterable compliance matrix with Compliant / Gap / Insufficient Data statuses. |
+| **PDF Upload** | Upload an RFP or tender PDF. Raw text is extracted and cleaned. |
+| **Requirement Extraction** | One LLM call splits the doc into mandatory, technical, and financial requirements. |
+| **RAG Matching** | Each technical requirement is embedded and queried against ChromaDB. Distance thresholds decide `matched` vs `gap`. |
+| **Classification + Fact-Check** | Mandatory/financial requirements are classified as `fact` or `experience` in one batch call. Facts are checked against the company profile. Experience items go through RAG. |
+| **Draft Generation** | Matched requirements get proposal paragraphs written by the LLM, using the matched capability as evidence. |
+| **Win Probability** | Compliance %, gap count, sector, budget, and timing are fed into a scikit-learn logistic regression model. |
 
-### Platform
-- **JWT Authentication** — Secure `httpOnly` cookie-based sessions (signup, login, logout)
-- **Multi-Workspace RFP Management** — Manage multiple RFP documents simultaneously
-- **Responsive Corporate UI** — Dark, professional B2B interface with Tailwind CSS v4
-- **Multi-Provider LLM Routing** — Per-task provider selection (OpenRouter, Hugging Face, Ollama) with automatic failover chains
-- **Automatic Provider Failover** — If the primary provider times out or errors, the system silently retries the next configured provider
+**Other things it has:** JWT auth with `httpOnly` cookies, multi-workspace support, per-task LLM provider routing (OpenRouter / Hugging Face / Ollama), automatic provider failover.
 
 ---
 
 ## System Architecture
 
 ```mermaid
+%%{init: {"theme": "base", "themeVariables": {
+  "background": "#0d1117",
+  "primaryColor": "#161b22",
+  "primaryTextColor": "#e6edf3",
+  "primaryBorderColor": "#30363d",
+  "lineColor": "#58a6ff",
+  "secondaryColor": "#161b22",
+  "tertiaryColor": "#21262d",
+  "clusterBkg": "#161b22",
+  "clusterBorder": "#388bfd",
+  "edgeLabelBackground": "#0d1117",
+  "fontFamily": "ui-monospace,SFMono-Regular,SF Mono,Menlo,monospace"
+}}}%%
 flowchart LR
-    classDef frontend fill:#1e3a5f,stroke:#3b82f6,color:#e0f2fe
-    classDef backend fill:#1a2e1a,stroke:#22c55e,color:#dcfce7
-    classDef db fill:#2e1a1a,stroke:#f87171,color:#fee2e2
-    classDef ai fill:#2e1a3a,stroke:#a855f7,color:#f3e8ff
-    classDef util fill:#1e2a3a,stroke:#64748b,color:#cbd5e1
+    classDef feNode fill:#1d4ed8,stroke:#93c5fd,color:#fff,stroke-width:2px
+    classDef beNode fill:#15803d,stroke:#86efac,color:#fff,stroke-width:2px
+    classDef dbNode fill:#b91c1c,stroke:#fca5a5,color:#fff,stroke-width:2px
+    classDef aiNode fill:#7c3aed,stroke:#c4b5fd,color:#fff,stroke-width:2px
 
-    subgraph FE ["  Frontend  —  port 5173  "]
+    subgraph FE ["  Frontend  —  :5173  "]
         direction TB
         UI["WorkspacePage.jsx\nDashboardPage.jsx\nLoginPage.jsx"]
         Store["workspaceStore.js\ndocumentStore.js\nauthStore.js\n— Zustand v5"]
         UI --> Store
     end
 
-    subgraph BE ["  Backend  —  Node.js / Express  —  port 5000  "]
+    subgraph BE ["  Backend  —  Node.js / Express  —  :5000  "]
         direction TB
         Controllers["document.controller\nextraction.controller\nmatch.controller\ndraft.controller\nscore.controller\nauth.controller\ncompanyProfile.controller"]
-        Utils["llm.js — multi-provider dispatcher\nrfpAnalysis.js — prompts + batch logic\npdfUtils.js — PDF cleaning\nbidUtils.js — compliance + budget\naiService.js — AI service client"]
+        Utils["llm.js — multi-provider dispatcher\nrfpAnalysis.js — prompts + batch logic\npdfUtils.js — PDF text cleaning\nbidUtils.js — compliance + budget math\naiService.js — AI service HTTP client"]
         Controllers --> Utils
     end
 
@@ -77,15 +83,20 @@ flowchart LR
         Collections["Document · Extraction\nMatch · DraftSection\nUser · CompanyProfile · Capability"]
     end
 
-    subgraph AI ["  Python AI Service  —  port 8000  "]
+    subgraph PY ["  Python AI Service  —  :8000  "]
         direction TB
-        Match["POST /match\nOllama nomic-embed-text\nChromaDB vector search"]
-        Predict["POST /predict\nscikit-learn LogisticRegression\n+ StandardScaler"]
+        MatchEP["POST /match\nOllama nomic-embed-text\nChromaDB vector search"]
+        PredictEP["POST /predict\nscikit-learn Logistic Regression\n+ StandardScaler"]
     end
 
-    FE -- "HTTP REST\nhttpOnly cookies" --> BE
-    BE -- "Mongoose\nMongoDB Atlas" --> DB
-    BE -- "HTTP" --> AI
+    FE -- "HTTP REST / httpOnly cookies" --> BE
+    BE -- "Mongoose / MongoDB Atlas" --> DB
+    BE -- "HTTP" --> PY
+
+    class UI,Store feNode
+    class Controllers,Utils beNode
+    class Collections dbNode
+    class MatchEP,PredictEP aiNode
 ```
 
 ---
@@ -170,15 +181,15 @@ BidIQ/
 │   │   │   ├── match.routes.js
 │   │   │   └── score.routes.js
 │   │   ├── scripts/
-│   │   │   └── seedCapabilities.js  # Seeds ChromaDB + MongoDB from Excel
+│   │   │   └── seedCapabilities.js  # Seeds MongoDB Capability collection from CSV
 │   │   ├── data/
 │   │   │   └── Capability_Library.xlsx
 │   │   └── utils/
-│   │       ├── aiService.js         # HTTP client for Python AI service
-│   │       ├── bidUtils.js          # Compliance % + budget parser
-│   │       ├── llm.js               # Multi-provider LLM dispatcher + failover
-│   │       ├── pdfUtils.js          # PDF text cleaning + normalization
-│   │       └── rfpAnalysis.js       # Prompts, batch classifiers, batch fact-checker, draft generator
+│   │       ├── aiService.js         # HTTP client to Python AI service
+│   │       ├── bidUtils.js          # Compliance % calculation + budget parser
+│   │       ├── llm.js               # LLM provider dispatcher with failover
+│   │       ├── pdfUtils.js          # PDF text cleaning and normalization
+│   │       └── rfpAnalysis.js       # All prompts, batch classification, fact-check, draft logic
 │   ├── uploads/                     # Multer uploaded PDFs (auto-created)
 │   ├── .env                         # Local secrets (gitignored)
 │   ├── .env.example                 # Environment variable template
@@ -408,7 +419,7 @@ OLLAMA_HOST=http://127.0.0.1:11434
 
 ## LLM Provider Routing
 
-BidIQ uses a task-based LLM routing system defined entirely via environment variables. Each AI task dispatches to an independent provider with automatic failover.
+Each pipeline task (extraction, matching, drafting, scoring) independently routes to a configured LLM provider via env vars. If the primary provider fails, it automatically falls back through the chain.
 
 ### Failover Chain
 
@@ -418,7 +429,7 @@ BidIQ uses a task-based LLM routing system defined entirely via environment vari
 | `huggingface` | Hugging Face → OpenRouter |
 | `ollama` | Ollama → Hugging Face → OpenRouter |
 
-If the primary provider fails (network timeout, rate limit, API error), the system silently retries the next provider in the chain without returning an error to the frontend.
+If a provider returns an error or times out, the next one in the chain is tried silently.
 
 ### Model Recommendations
 
@@ -434,50 +445,62 @@ If the primary provider fails (network timeout, rate limit, API error), the syst
 ## AI Pipeline Overview
 
 ```mermaid
+%%{init: {"theme": "base", "themeVariables": {
+  "background": "#0d1117",
+  "primaryColor": "#161b22",
+  "primaryTextColor": "#e6edf3",
+  "primaryBorderColor": "#30363d",
+  "lineColor": "#58a6ff",
+  "secondaryColor": "#161b22",
+  "tertiaryColor": "#21262d",
+  "clusterBkg": "#161b22",
+  "clusterBorder": "#388bfd",
+  "edgeLabelBackground": "#0d1117",
+  "fontFamily": "ui-monospace,SFMono-Regular,SF Mono,Menlo,monospace"
+}}}%%
 flowchart TD
-    classDef input fill:#0f2027,stroke:#38bdf8,color:#e0f2fe
-    classDef process fill:#0f1f0f,stroke:#4ade80,color:#dcfce7
-    classDef llm fill:#1a0f2e,stroke:#a78bfa,color:#ede9fe
-    classDef rag fill:#1a1a0f,stroke:#facc15,color:#fef9c3
-    classDef output fill:#1f0f0f,stroke:#f87171,color:#fee2e2
-    classDef score fill:#0f1a2e,stroke:#60a5fa,color:#dbeafe
+    classDef ingest   fill:#0369a1,stroke:#7dd3fc,color:#fff,stroke-width:2px
+    classDef extract  fill:#b45309,stroke:#fcd34d,color:#fff,stroke-width:2px
+    classDef rag      fill:#15803d,stroke:#86efac,color:#fff,stroke-width:2px
+    classDef llmcall  fill:#7c3aed,stroke:#c4b5fd,color:#fff,stroke-width:2px
+    classDef factchk  fill:#be185d,stroke:#f9a8d4,color:#fff,stroke-width:2px
+    classDef draft    fill:#0f766e,stroke:#5eead4,color:#fff,stroke-width:2px
+    classDef scoring  fill:#b91c1c,stroke:#fca5a5,color:#fff,stroke-width:2px
+    classDef split    fill:#334155,stroke:#94a3b8,color:#e2e8f0,stroke-width:1px
 
     PDF(["PDF Upload"])
-    Clean["pdf-parse + pdfUtils.js\nClean & normalize raw text"]
-
+    Clean["pdf-parse + pdfUtils.js\nClean and normalize raw text"]
     PDF --> Clean
-
     Clean --> Extract
 
-    subgraph Extract [" Step 1 — Requirement Extraction  ·  1 LLM call &#40;OpenRouter: ling-3.0-flash&#41; "]
+    subgraph Extract [" Step 1 — Requirement Extraction  ·  1 LLM call — OpenRouter: ling-3.0-flash "]
         direction LR
-        ExtractNode["extraction.controller.js\nbuildExtractionPrompt\n\nOutputs saved to MongoDB Extraction document:\n  · title, organization, rfpNumber, country\n  · submissionDeadline, estimatedBudget\n  · mandatoryRequirements&#91;&#93;\n  · technicalRequirements&#91;&#93;\n  · financialRequirements&#91;&#93;\n  · deliverables&#91;&#93; · requiredDocuments&#91;&#93;"]
+        ExtractNode["extraction.controller.js  ·  buildExtractionPrompt\n\nSaved to MongoDB Extraction:\n  mandatoryRequirements[] · technicalRequirements[]\n  financialRequirements[] · deliverables[]\n  title · org · deadline · budget · rfpNumber"]
     end
 
-    Extract --> TechReqs["technicalRequirements&#91;&#93;"]
-    Extract --> MandFin["mandatoryRequirements&#91;&#93;\nfinancialRequirements&#91;&#93;"]
+    Extract --> TechReqs["technicalRequirements[]"]
+    Extract --> MandFin["mandatoryRequirements[]\nfinancialRequirements[]"]
 
-    subgraph TechMatch [" Step 2a — RAG Matching  &#40;per technical requirement&#41; "]
-        TechRAG["aiService.js → POST :8000/match\nOllama nomic-embed-text embedding\nChromaDB cosine similarity\n\nIf distance < 350 → matched\nIf distance > 400 → gap"]
+    subgraph TechMatch [" Step 2a — RAG Matching  per technical requirement "]
+        TechRAG["aiService.js  POST :8000/match\nOllama nomic-embed-text embedding\nChromaDB cosine similarity search\n\ndistance less than 350  matched\ndistance greater than 400  gap"]
     end
 
     TechReqs --> TechMatch
 
-    subgraph ClassifyStep [" Step 2b — Batch Classification  ·  1 LLM call &#40;HuggingFace: Qwen2.5-7B&#41; "]
-        ClassifyNode["classifyRequirementsBatch\nEach requirement labelled:\n  fact  — verifiable company attribute\n  experience  — past project evidence required"]
+    subgraph ClassifyStep [" Step 2b — Batch Classification  ·  1 LLM call — HuggingFace: Qwen2.5-7B "]
+        ClassifyNode["classifyRequirementsBatch\n\nfact    verifiable company attribute\nexperience    past project evidence required"]
     end
 
     MandFin --> ClassifyStep
-
     ClassifyStep --> ExpItems["Experience items"]
     ClassifyStep --> FactItems["Fact items"]
 
-    subgraph ExpMatch [" Step 2c — RAG Matching  &#40;experience items&#41; "]
-        ExpRAG["POST :8000/match\nSame vector search as Step 2a\n→ matched or gap"]
+    subgraph ExpMatch [" Step 2c — RAG Matching  experience items "]
+        ExpRAG["POST :8000/match\nSame vector search pipeline\nmatched or gap"]
     end
 
-    subgraph FactCheck [" Step 2d — Batch Fact-Check  ·  1 LLM call &#40;HuggingFace: Qwen2.5-7B&#41; "]
-        FactNode["factCheckRequirementsBatch\nvs CompanyProfile document\n\nVerdict per item:\n  PASS · FAIL · INSUFFICIENT_DATA"]
+    subgraph FactCheck [" Step 2d — Batch Fact-Check  ·  1 LLM call — HuggingFace: Qwen2.5-7B "]
+        FactNode["factCheckRequirementsBatch\nvs CompanyProfile document\n\nPASS · FAIL · INSUFFICIENT_DATA"]
     end
 
     ExpItems --> ExpMatch
@@ -487,20 +510,29 @@ flowchart TD
     ExpMatch --> Drafts
     FactCheck --> Drafts
 
-    subgraph Drafts [" Step 3 — Batch Draft Generation  ·  1 LLM call &#40;HuggingFace: Qwen2.5-7B&#41; "]
-        DraftNode["generateDraftsBatch\nFor matched/pass items only:\n  RAG matches → evidence-based proposal paragraphs\n  Fact passes → compliance confirmation sentences\nSaved to MongoDB DraftSection collection"]
+    subgraph Drafts [" Step 3 — Batch Draft Generation  ·  1 LLM call — HuggingFace: Qwen2.5-7B "]
+        DraftNode["generateDraftsBatch\nMatched  evidence-based proposal paragraphs\nPassed facts  compliance confirmation sentences\nSaved to MongoDB DraftSection collection"]
     end
 
     Drafts --> Scoring
 
     subgraph Scoring [" Step 4 — Bid Scoring "]
         direction LR
-        Compliance["bidUtils.js\ncomputeBidStats\ncompliance_percent\ngaps_found · doc_pages"]
-        Sector["classifySector\n1 LLM call — OpenRouter\n→ Education, IT Services,\n  Healthcare, Finance..."]
-        Win["POST :8000/predict\nscikit-learn LogisticRegression\nInput features: budget · response_time\ncompliance_pct · gaps · sector · month\n\nOutput: Win probability 0–1"]
+        Compliance["bidUtils.js  computeBidStats\ncompliance_percent · gaps_found · doc_pages"]
+        Sector["classifySector  1 LLM call — OpenRouter\nEducation · IT Services · Healthcare · Finance..."]
+        Win["POST :8000/predict\nscikit-learn LogisticRegression\nfeatures: budget · response_time · compliance\ngaps · sector · submission month\n\nOutput: Win probability 0 to 1"]
         Compliance --> Win
         Sector --> Win
     end
+
+    class PDF,Clean ingest
+    class ExtractNode extract
+    class TechRAG,ExpRAG rag
+    class ClassifyNode llmcall
+    class FactNode factchk
+    class DraftNode draft
+    class Compliance,Sector,Win scoring
+    class TechReqs,MandFin,ExpItems,FactItems split
 ```
 
 > **Total LLM calls per full RFP analysis: ~4–6 calls** (down from 30–40 sequential calls)
@@ -566,26 +598,26 @@ flowchart TD
 
 ---
 
-## Data Seeding & Initialization
+## Data Seeding
 
-BidIQ relies on a pre-compiled historical capability library (`backend/src/data/Capability_Library.csv`) to match extracted RFP requirements. Two separate seed scripts must be run to initialize the app databases:
+Both databases need to be seeded before the app is functional. The source data is `Capability_Library.csv` — a set of historical bid records used for RAG matching and win probability training.
 
-### 1. MongoDB Bid History Seeding
+### 1. MongoDB — Bid History Metadata
 - **Script**: `backend/src/scripts/seedCapabilities.js`
-- **Command** (from `backend/` directory):
+- **Run from**: `backend/` directory
   ```bash
   node src/scripts/seedCapabilities.js
   ```
-- **Description**: Connects to the configured MongoDB database, clears existing capability documents, reads `Capability_Library.csv`, and seeds the `Capability` collection with historical metadata (budget, outcomes, sectors, timelines, and managers).
+- Clears the existing `Capability` collection and re-inserts all records from `Capability_Library.csv` (budget, sector, outcome, compliance %, etc.).
 
-### 2. ChromaDB RAG Vector Store Seeding
+### 2. ChromaDB — RAG Vector Store
 - **Script**: `ai-service/scripts/seed_chroma.py`
-- **Command** (from `ai-service/` directory with virtual environment active):
+- **Run from**: `ai-service/` with virtualenv active
   ```bash
   python scripts/seed_chroma.py
   ```
-- **Description**: Deletes any pre-existing local vector collection, reads the shared `Capability_Library.csv` file, gets embeddings from Ollama using the configured model (`nomic-embed-text`), and registers all historical bids in local persistent ChromaDB storage.
-- **Dependency**: Requires local Ollama service to be active.
+- Drops the existing ChromaDB collection, re-embeds all bid records using `nomic-embed-text` via Ollama, and stores them locally under `chroma_store/`.
+- Ollama must be running before this script is executed.
 
 ---
 
