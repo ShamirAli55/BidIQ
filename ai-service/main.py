@@ -32,7 +32,27 @@ class MatchRequest(BaseModel):
 
 @app.post("/match")
 def match_requirement(req: MatchRequest):
-    vector = embedding(req.requirementText)
+    if not req.requirementText or not req.requirementText.strip():
+        return {
+            "ids": [[]],
+            "distances": [[]],
+            "documents": [[]],
+            "metadatas": [[]],
+            "embeddings": None,
+            "uris": None,
+            "data": None
+        }
+    vector = embedding(req.requirementText.strip())
+    if not vector:
+        return {
+            "ids": [[]],
+            "distances": [[]],
+            "documents": [[]],
+            "metadatas": [[]],
+            "embeddings": None,
+            "uris": None,
+            "data": None
+        }
     results = chroma_collection.query(query_embeddings=[vector], n_results=N_RAG_RESULTS)
     return results
 
