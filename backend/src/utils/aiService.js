@@ -1,5 +1,7 @@
+const AI_SERVICE_URL = process.env.AI_SERVICE_URL || "http://localhost:8000";
+
 export async function matchRequirement(requirementText) {
-  const res = await fetch("http://localhost:8000/match", {
+  const res = await fetch(`${AI_SERVICE_URL}/match`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ requirementText }),

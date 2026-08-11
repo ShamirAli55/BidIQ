@@ -7,6 +7,9 @@ import LoginPage from "./pages/LoginPage";
 import SignupPage from "./pages/SignupPage";
 import DashboardPage from "./pages/DashboardPage";
 import WorkspacePage from "./pages/WorkspacePage";
+import CompanyProfilePage from "./pages/CompanyProfilePage";
+import AISettingsPage from "./pages/AISettingsPage";
+import UserProfilePage from "./pages/UserProfilePage";
 
 export default function App() {
   const checkAuth = useAuthStore((state) => state.checkAuth);
@@ -62,6 +65,33 @@ export default function App() {
           element={
             <ProtectedRoute>
               <WorkspacePage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/company-profile"
+          element={
+            <ProtectedRoute>
+              <CompanyProfilePage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/ai-settings"
+          element={
+            <ProtectedRoute>
+              <AISettingsPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <UserProfilePage />
             </ProtectedRoute>
           }
         />

@@ -1,8 +1,10 @@
 import express from "express";
-import { createProfile } from "../controllers/companyProfile.controller.js";
+import { getProfile, upsertProfile } from "../controllers/companyProfile.controller.js";
+import { protect } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
 
-router.post("/", createProfile);
+router.get("/", protect, getProfile);
+router.put("/", protect, upsertProfile);
 
 export default router;

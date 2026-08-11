@@ -1,18 +1,22 @@
 import { askLLM } from "./llm.js";
 import { matchRequirement } from "./aiService.js";
 
-const KNOWN_SECTORS = [
-  "Construction",
-  "Education",
-  "Energy",
-  "Finance",
-  "Healthcare",
-  "IT Services",
-  "Logistics",
-  "Telecom",
-];
+const KNOWN_SECTORS = process.env.KNOWN_SECTORS
+  ? process.env.KNOWN_SECTORS.split(",").map((s) => s.trim())
+  : [
+      "Construction",
+      "Education",
+      "Energy",
+      "Finance",
+      "Healthcare",
+      "IT Services",
+      "Logistics",
+      "Telecom",
+    ];
 
-const RAG_THRESHOLD = 350;
+const RAG_THRESHOLD = parseInt(process.env.RAG_THRESHOLD || "350", 10);
+const RAG_ABSOLUTE_CEILING = parseInt(process.env.RAG_ABSOLUTE_CEILING || "400", 10);
+const DEFAULT_SECTOR = process.env.DEFAULT_SECTOR || "IT Services";
 
 export function buildExtractionPrompt(text) {
   return `
@@ -71,7 +75,7 @@ export function decideMatchStatus(matchedCapabilities) {
   if (!matchedCapabilities || !matchedCapabilities.length) return "gap";
 
   const best = matchedCapabilities[0].distance;
-  const ABSOLUTE_CEILING = 400;
+  const ABSOLUTE_CEILING = RAG_ABSOLUTE_CEILING;
 
   if (best > ABSOLUTE_CEILING) return "gap";
 
@@ -206,14 +210,12 @@ Pick the closest match even if imperfect.
   try {
     const raw = await askLLM(prompt, { task: "score" });
     const jsonMatch = raw.match(/\{[\s\S]*?\}/);
-    if (!jsonMatch) return "IT Services";
+    if (!jsonMatch) return DEFAULT_SECTOR;
     const parsed = JSON.parse(jsonMatch[0]);
-    return KNOWN_SECTORS.includes(parsed.sector)
-      ? parsed.sector
-      : "IT Services";
+    return KNOWN_SECTORS.includes(parsed.sector) ? parsed.sector : DEFAULT_SECTOR;
   } catch (err) {
     console.warn("classifySector JSON parse warning:", err.message);
-    return "IT Services";
+    return DEFAULT_SECTOR;
   }
 }
 

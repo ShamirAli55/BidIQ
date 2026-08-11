@@ -27,7 +27,8 @@ export const scoreBid = async (req, res) => {
       extraction.organization
     );
 
-    const response = await fetch("http://localhost:8000/predict", {
+    const aiServiceUrl = process.env.AI_SERVICE_URL || "http://localhost:8000";
+    const response = await fetch(`${aiServiceUrl}/predict`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -37,6 +38,7 @@ export const scoreBid = async (req, res) => {
         doc_pages: stats.doc_pages,
         gaps_found: stats.gaps_found,
         sector,
+        submission_deadline: extraction.submissionDeadline || null,
       }),
     });
 

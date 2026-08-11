@@ -10,6 +10,7 @@ import extractionRoutes from "./routes/extraction.routes.js";
 import matchRoutes from "./routes/match.routes.js";
 import draftRoutes from "./routes/draft.routes.js";
 import scoreRoutes from "./routes/score.routes.js";
+import settingsRoutes from "./routes/settings.routes.js";
 import { protect } from "./middleware/auth.middleware.js";
 
 dotenv.config();
@@ -34,6 +35,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/company-profile", companyProfileRoutes);
 
 // Protected Domain Routes
+app.use("/api/settings", protect, settingsRoutes);
 app.use("/api/documents", protect, documentRoutes);
 app.use("/api/documents", protect, extractionRoutes);
 app.use("/api/extractions", protect, matchRoutes);

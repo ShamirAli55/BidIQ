@@ -14,7 +14,7 @@ export const matchExtraction = async (req, res) => {
     if (!extraction)
       return res.status(404).json({ error: "Extraction not found" });
 
-    const companyProfile = await CompanyProfile.findOne();
+    const companyProfile = (await CompanyProfile.findOne()) || {};
     const matches = [];
 
     await Match.deleteMany({ extraction: extraction._id });
