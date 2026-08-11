@@ -25,16 +25,13 @@ app.use(
   })
 );
 
-// Health Check
 app.get("/api/health", (_, res) => {
   res.send("Backend is working ...");
 });
 
-// Auth & Company Profile Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/company-profile", companyProfileRoutes);
 
-// Protected Domain Routes
 app.use("/api/settings", protect, settingsRoutes);
 app.use("/api/documents", protect, documentRoutes);
 app.use("/api/documents", protect, extractionRoutes);

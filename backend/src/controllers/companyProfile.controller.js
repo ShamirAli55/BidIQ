@@ -12,7 +12,6 @@ export const getProfile = async (req, res) => {
 
 export const upsertProfile = async (req, res) => {
   try {
-    // Always keep a single company profile document
     const profile = await CompanyProfile.findOneAndUpdate(
       {},
       { $set: req.body },

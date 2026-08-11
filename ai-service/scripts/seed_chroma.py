@@ -9,12 +9,10 @@ load_dotenv()
 CHROMA_STORE_PATH = os.getenv("CHROMA_STORE_PATH", "./chroma_store/")
 CHROMA_COLLECTION_NAME = os.getenv("CHROMA_COLLECTION_NAME", "capabilities")
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "nomic-embed-text:latest")
-# Path to the CSV from the ai-service directory
 CSV_PATH = os.getenv("CAPABILITY_CSV_PATH", "../backend/src/data/Capability_Library.csv")
 
 chroma_client = chromadb.PersistentClient(path=CHROMA_STORE_PATH)
 
-# Delete and recreate collection to ensure a clean re-seed
 try:
     chroma_client.delete_collection(name=CHROMA_COLLECTION_NAME)
     print(f"Deleted existing collection: {CHROMA_COLLECTION_NAME}")
@@ -30,7 +28,6 @@ def embedding(text: str):
 
 
 def build_chunk_text(row: dict) -> str:
-    """Convert a bid history row into a rich natural-language chunk for embedding."""
     return (
         f"Bid {row['Bid ID']} | Client: {row['Client']} | Sector: {row['Sector']} | "
         f"Budget: {row['Budget']} ({row['Budget_M']}M PKR) | "
@@ -41,7 +38,6 @@ def build_chunk_text(row: dict) -> str:
     )
 
 
-# Read CSV
 rows = []
 with open(CSV_PATH, newline="", encoding="utf-8") as f:
     reader = csv.DictReader(f)
@@ -58,7 +54,6 @@ metadatas = []
 for row in rows:
     bid_id = row["Bid ID"].strip()
     chunk = build_chunk_text(row)
-
     vec = embedding(chunk)
 
     ids.append(bid_id)
@@ -71,10 +66,8 @@ for row in rows:
         "compliance": row["Compliance %"].strip(),
         "score": row["Score (%)"].strip(),
     })
-
     print(f"  Embedded {bid_id}")
 
-# Batch upsert into ChromaDB
 chroma_collection.add(
     ids=ids,
     documents=texts,
@@ -84,7 +77,6 @@ chroma_collection.add(
 
 print(f"\n✅ Stored {chroma_collection.count()} bid records in ChromaDB collection '{CHROMA_COLLECTION_NAME}'")
 
-# Sanity-check query
 print("\n🔍 Running sanity-check query...")
 query_text = "IT services compliance government sector high score win"
 query_vector = embedding(query_text)

@@ -16,7 +16,6 @@ async function parseCSV(filePath) {
   const headers = lines[0].split(",").map((h) => h.trim());
 
   return lines.slice(1).map((line) => {
-    // Handle commas inside quoted fields
     const values = [];
     let current = "";
     let inQuotes = false;

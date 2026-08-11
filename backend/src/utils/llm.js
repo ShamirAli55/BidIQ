@@ -112,7 +112,6 @@ export async function askLLM(prompt, options = {}) {
     console.warn("[LLM] Unable to query database settings, falling back to environment.", err.message);
   }
 
-  // Determine provider prioritizing runtime configurations
   let provider = options.provider;
   if (!provider && options.task) {
     const envKey = `${options.task.toUpperCase()}_LLM_PROVIDER`;

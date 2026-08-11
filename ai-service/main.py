@@ -11,19 +11,12 @@ load_dotenv()
 
 app = FastAPI()
 
-# ---------------------------------------------------------------------------
-# Configuration — all values driven by environment variables
-# ---------------------------------------------------------------------------
 CHROMA_STORE_PATH = os.getenv("CHROMA_STORE_PATH", "./chroma_store/")
 CHROMA_COLLECTION_NAME = os.getenv("CHROMA_COLLECTION_NAME", "capabilities")
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "nomic-embed-text:latest")
 MODEL_PATH = os.getenv("MODEL_PATH", "./models/bid_outcome_model.pkl")
-SCALER_PATH = os.getenv("SCALER_PATH", "./models/scaler.pkl")
 N_RAG_RESULTS = int(os.getenv("N_RAG_RESULTS", "3"))
 
-# ---------------------------------------------------------------------------
-# RAG matching setup
-# ---------------------------------------------------------------------------
 chroma_client = chromadb.PersistentClient(path=CHROMA_STORE_PATH)
 chroma_collection = chroma_client.get_or_create_collection(name=CHROMA_COLLECTION_NAME)
 
@@ -44,9 +37,6 @@ def match_requirement(req: MatchRequest):
     return results
 
 
-# ---------------------------------------------------------------------------
-# Win-probability model setup
-# ---------------------------------------------------------------------------
 loaded_obj = joblib.load(MODEL_PATH)
 
 if not isinstance(loaded_obj, dict):
@@ -58,7 +48,6 @@ scaler = loaded_obj["scaler"]
 FEATURE_COLUMNS = loaded_obj.get("feature_columns")
 TARGET_CLASSES = loaded_obj.get("target_classes", [0, 1])
 
-# Derive known sectors dynamically from feature columns
 SECTOR_COLUMNS = [col for col in FEATURE_COLUMNS if col.lower().startswith("sector_")]
 KNOWN_SECTORS = [col.split("_", 1)[1] for col in SECTOR_COLUMNS]
 
@@ -75,8 +64,7 @@ class BidStatsRequest(BaseModel):
 
 @app.post("/predict")
 def predict_win(req: BidStatsRequest):
-    # Parse month and quarter from deadline or current time
-    month = 8  # fallback defaults
+    month = 8
     quarter = 3
     
     date_str = req.submission_deadline
@@ -85,8 +73,7 @@ def predict_win(req: BidStatsRequest):
             dt = pd.to_datetime(date_str)
             month = dt.month
             quarter = (dt.month - 1) // 3 + 1
-        except Exception as e:
-            print(f"Error parsing date string '{date_str}': {e}. Using current time fallback.")
+        except Exception:
             current_time = pd.Timestamp.now()
             month = current_time.month
             quarter = (current_time.month - 1) // 3 + 1
@@ -95,10 +82,8 @@ def predict_win(req: BidStatsRequest):
         month = current_time.month
         quarter = (current_time.month - 1) // 3 + 1
 
-    # Build a zero-filled DataFrame with exact columns expected by scaler
     row = pd.DataFrame(0, index=[0], columns=FEATURE_COLUMNS)
 
-    # Dynamic fuzzy matching of input fields to any feature column header
     for col in FEATURE_COLUMNS:
         normalized_col = col.lower().replace(" ", "").replace("_", "").replace("(", "").replace(")", "").replace("%", "")
         
@@ -120,18 +105,14 @@ def predict_win(req: BidStatsRequest):
         elif "quarter" in normalized_col:
             row.at[0, col] = quarter
         elif "sector" in normalized_col:
-            # Extract sector value (e.g. from Selector_Telecom extract Telecom)
             sector_name = col.split("_", 1)[1] if "_" in col else col
             if sector_name.lower().strip() == req.sector.lower().strip():
                 row.at[0, col] = 1
 
-    # Transform values via scaler
     row_scaled = scaler.transform(row)
     prediction = win_model.predict(row_scaled)[0]
     probability = win_model.predict_proba(row_scaled)[0][1]
 
-    # Map prediction binary back to human-readable labels inside target_classes if possible,
-    # otherwise defaults.
     if isinstance(prediction, (int, float, bool)):
         prediction_idx = int(prediction)
         if 0 <= prediction_idx < len(TARGET_CLASSES):
