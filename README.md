@@ -271,21 +271,25 @@ pnpm install
 cp .env.example .env
 # Edit .env with your credentials
 
+# Seed metadata to MongoDB (requires MongoDB running/URI configured)
+node src/scripts/seedCapabilities.js
+
 # Start development server
 pnpm dev
 # Server runs on http://localhost:5000
 ```
 
-**Seed the capability library** (run once after setting up):
-```bash
-node src/scripts/seedCapabilities.js
-```
-This reads `src/data/Capability_Library.xlsx` and seeds both MongoDB (`Capability` collection) and the ChromaDB vector store in the AI service.
-
 ---
 
 ### 2. AI Service Setup
 
+Ensure Ollama is running and has the embedding model downloaded:
+```bash
+ollama serve
+ollama pull nomic-embed-text:latest
+```
+
+Then configure and start the Python AI Service:
 ```bash
 cd ai-service
 
@@ -301,12 +305,13 @@ source venv/bin/activate
 # Install dependencies
 pip install -r requirements.txt
 
+# Seed the ChromaDB local vector store (Ollama must be running)
+python scripts/seed_chroma.py
+
 # Start the AI service
 uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 # AI service runs on http://localhost:8000
 ```
-
-> **Note:** Ollama must be running locally (`ollama serve`) before starting the AI service, as it uses `nomic-embed-text` for vector embeddings.
 
 ---
 
@@ -534,16 +539,26 @@ Bid Scoring:
 
 ---
 
-## Scripts
+## Data Seeding & Initialization
 
-### Seed Capability Library
-```bash
-# From backend/
-node src/scripts/seedCapabilities.js
-```
-Reads `src/data/Capability_Library.xlsx`, embeds each entry via `nomic-embed-text` through the AI service, and stores vectors in ChromaDB plus metadata in MongoDB.
+BidIQ relies on a pre-compiled historical capability library (`backend/src/data/Capability_Library.csv`) to match extracted RFP requirements. Two separate seed scripts must be run to initialize the app databases:
 
-> Requires the AI service to be running at `http://localhost:8000` before seeding.
+### 1. MongoDB Bid History Seeding
+- **Script**: `backend/src/scripts/seedCapabilities.js`
+- **Command** (from `backend/` directory):
+  ```bash
+  node src/scripts/seedCapabilities.js
+  ```
+- **Description**: Connects to the configured MongoDB database, clears existing capability documents, reads `Capability_Library.csv`, and seeds the `Capability` collection with historical metadata (budget, outcomes, sectors, timelines, and managers).
+
+### 2. ChromaDB RAG Vector Store Seeding
+- **Script**: `ai-service/scripts/seed_chroma.py`
+- **Command** (from `ai-service/` directory with virtual environment active):
+  ```bash
+  python scripts/seed_chroma.py
+  ```
+- **Description**: Deletes any pre-existing local vector collection, reads the shared `Capability_Library.csv` file, gets embeddings from Ollama using the configured model (`nomic-embed-text`), and registers all historical bids in local persistent ChromaDB storage.
+- **Dependency**: Requires local Ollama service to be active.
 
 ---
 
