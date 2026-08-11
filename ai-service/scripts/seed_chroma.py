@@ -75,9 +75,9 @@ chroma_collection.add(
     metadatas=metadatas,
 )
 
-print(f"\n✅ Stored {chroma_collection.count()} bid records in ChromaDB collection '{CHROMA_COLLECTION_NAME}'")
+print(f"\n Stored {chroma_collection.count()} bid records in ChromaDB collection '{CHROMA_COLLECTION_NAME}'")
 
-print("\n🔍 Running sanity-check query...")
+print("\n Running sanity-check query...")
 query_text = "IT services compliance government sector high score win"
 query_vector = embedding(query_text)
 results = chroma_collection.query(query_embeddings=[query_vector], n_results=3)
