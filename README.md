@@ -228,6 +228,8 @@ BidIQ/
 │
 ├── ai-service/                      # Python FastAPI AI service
 │   ├── main.py                      # /match and /predict endpoints
+│   ├── notebooks/
+│   │   └── BidIQ.ipynb              # Model training and exploration notebook
 │   ├── models/
 │   │   ├── logistic_model.pkl       # Trained win probability model
 │   │   └── scaler.pkl               # StandardScaler for model input
