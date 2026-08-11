@@ -49,26 +49,14 @@ def match_requirement(req: MatchRequest):
 # ---------------------------------------------------------------------------
 loaded_obj = joblib.load(MODEL_PATH)
 
-# Check if the loaded object is a dictionary containing the model/scaler combo
-if isinstance(loaded_obj, dict):
-    print("Detected combined model dictionary format inside .pkl")
-    win_model = loaded_obj["model"]
-    scaler = loaded_obj["scaler"]
-    FEATURE_COLUMNS = loaded_obj.get("feature_columns")
-    TARGET_CLASSES = loaded_obj.get("target_classes", [0, 1])
-else:
-    # Legacy fit format: load scaler separately
-    print("Detected standard model pickle file format")
-    win_model = loaded_obj
-    scaler = joblib.load(SCALER_PATH)
-    if hasattr(scaler, "feature_names_in_"):
-        FEATURE_COLUMNS = list(scaler.feature_names_in_)
-    else:
-        raise RuntimeError(
-            "Scaler does not expose feature_names_in_. "
-            "Please ensure scaler was trained with Pandas DataFrame headers."
-        )
-    TARGET_CLASSES = list(win_model.classes_) if hasattr(win_model, "classes_") else [0, 1]
+if not isinstance(loaded_obj, dict):
+    raise RuntimeError("Active model template must be a dictionary containing 'model', 'scaler', and 'feature_columns'")
+
+print("Detected combined model dictionary format inside .pkl")
+win_model = loaded_obj["model"]
+scaler = loaded_obj["scaler"]
+FEATURE_COLUMNS = loaded_obj.get("feature_columns")
+TARGET_CLASSES = loaded_obj.get("target_classes", [0, 1])
 
 # Derive known sectors dynamically from feature columns
 SECTOR_COLUMNS = [col for col in FEATURE_COLUMNS if col.lower().startswith("sector_")]
