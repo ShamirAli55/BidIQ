@@ -51,46 +51,19 @@ BidIQ is a full-stack B2B SaaS platform that automates the entire bid response l
 
 ## System Architecture
 
-```
-┌─────────────────────────────────────────────────────┐
-│                   Browser Client                    │
-│          React 19 + Zustand + TailwindCSS           │
-└────────────────────┬────────────────────────────────┘
-                     │ HTTP REST (cookies)
-┌────────────────────▼────────────────────────────────┐
-│              Node.js / Express Backend               │
-│   MVC: Controllers → Services (utils) → Models      │
-│                                                      │
-│  Controllers:                                        │
-│    document.controller  →  PDF upload, workspace     │
-│    extraction.controller→  LLM extraction            │
-│    match.controller     →  RAG + fact-check match    │
-│    draft.controller     →  Batch draft generation    │
-│    score.controller     →  Bid scoring + prediction  │
-│    auth.controller      →  JWT auth                  │
-│    companyProfile.ctrl  →  Company profile           │
-│                                                      │
-│  Utils:                                              │
-│    llm.js          →  Multi-provider dispatcher      │
-│    rfpAnalysis.js  →  Prompts + batch processors     │
-│    pdfUtils.js     →  PDF cleaning + normalizing     │
-│    bidUtils.js     →  Compliance % + budget parser   │
-│    aiService.js    →  AI service HTTP client         │
-└────┬───────────────────────────────┬────────────────┘
-     │ MongoDB Atlas                 │ HTTP (port 8000)
-┌────▼──────┐              ┌────────▼────────────────┐
-│  MongoDB  │              │    Python AI Service     │
-│  Atlas    │              │   FastAPI + ChromaDB     │
-│           │              │                          │
-│  Models:  │              │  POST /match             │
-│  Document │              │    nomic-embed-text       │
-│  Extraction              │    ChromaDB vector store  │
-│  Match    │              │                          │
-│  Draft    │              │  POST /predict            │
-│  User     │              │    Logistic Regression    │
-│  Company  │              │    scikit-learn model     │
-│  Capability              └─────────────────────────┘
-└───────────┘
+```mermaid
+flowchart TD
+    Browser["🌐 Browser Client\nReact 19 + Zustand + TailwindCSS v4"]
+
+    Backend["⚙️ Node.js / Express Backend\n\ndocument.controller → PDF upload & workspace\nextraction.controller → LLM requirement extraction\nmatch.controller → RAG + fact-check matching\ndraft.controller → Batch proposal draft generation\nscore.controller → Bid scoring & win probability\nauth.controller → JWT cookie authentication\ncompanyProfile.controller → Company profile management\n\nUtils: llm.js · rfpAnalysis.js · pdfUtils.js · bidUtils.js · aiService.js"]
+
+    MongoDB[("🗄️ MongoDB Atlas\n\nDocument\nExtraction\nMatch\nDraftSection\nUser\nCompanyProfile\nCapability")]
+
+    AIService["🐍 Python AI Service\nFastAPI + ChromaDB\n\nPOST /match\n→ nomic-embed-text embeddings\n→ ChromaDB vector similarity search\n\nPOST /predict\n→ scikit-learn Logistic Regression\n→ Win probability output"]
+
+    Browser -- "HTTP REST (httpOnly cookies)" --> Backend
+    Backend -- "Mongoose / MongoDB Atlas" --> MongoDB
+    Backend -- "HTTP (port 8000)" --> AIService
 ```
 
 ---
@@ -438,45 +411,38 @@ If the primary provider fails (network timeout, rate limit, API error), the syst
 
 ## AI Pipeline Overview
 
-```
-PDF Upload
-    │
-    ▼
-Text Clean + Normalize (pdfUtils.js)
-    │
-    ▼
-LLM Extraction ─── 1 LLM call (OpenRouter)
-    │   Outputs: title, org, deadline, mandatory/technical/financial
-    │   requirements, deliverables, required docs, evaluation criteria
-    ▼
-Compliance Matching:
-    ├─ Technical Requirements ──► RAG Vector Search (ChromaDB, per requirement)
-    │                             status: matched | gap
-    │
-    └─ Mandatory + Financial Requirements:
-         │
-         ├─ Batch Classification ─── 1 LLM call (HuggingFace)
-         │       Each requirement classified: fact | experience
-         │
-         ├─ Experience items ──────► RAG Vector Search (per item)
-         │                           status: matched | gap
-         │
-         └─ Fact items ───────────► Batch Fact-Check ─── 1 LLM call (HuggingFace)
-                                     vs Company Profile
-                                     status: pass | fail | insufficient_data
-    │
-    ▼
-Batch Draft Generation ─── 1 LLM call (HuggingFace)
-    │   RAG-matched items → capability evidence paragraphs
-    │   Fact-passed items → compliance confirmation sentences
-    ▼
-Bid Scoring:
-    ├─ Compliance % calculation
-    ├─ Sector Classification ─── 1 LLM call (OpenRouter)
-    └─ Win Probability ──────► Logistic Regression Model (AI service)
+```mermaid
+flowchart TD
+    A(["📄 PDF Upload"])
+    B["🧹 Text Clean + Normalize\npdfUtils.js"]
+    C["🤖 LLM Requirement Extraction\n1 LLM call — OpenRouter\n\nOutputs: title · org · deadline\nmandatory · technical · financial\nrequirements · deliverables · docs"]
+
+    A --> B --> C
+
+    C --> D["🔧 Technical Requirements"]
+    C --> E["📋 Mandatory + Financial Requirements"]
+
+    D --> D1["🔍 RAG Vector Search\nChromaDB per requirement\n→ status: matched or gap"]
+
+    E --> F["🏷️ Batch Classification\n1 LLM call — HuggingFace\n→ fact or experience per item"]
+
+    F --> G["🏆 Experience Items"]
+    F --> H["📌 Fact Items"]
+
+    G --> G1["🔍 RAG Vector Search\nper item\n→ status: matched or gap"]
+    H --> H1["✅ Batch Fact-Check\n1 LLM call — HuggingFace\nvs Company Profile\n→ pass · fail · insufficient_data"]
+
+    D1 --> I["✍️ Batch Draft Generation\n1 LLM call — HuggingFace\n\nRAG matches → capability evidence paragraphs\nFact passes → compliance confirmation sentences"]
+    G1 --> I
+    H1 --> I
+
+    I --> J["📊 Bid Scoring"]
+    J --> J1["📐 Compliance % Calculation"]
+    J --> J2["🌐 Sector Classification\n1 LLM call — OpenRouter"]
+    J --> J3["🎯 Win Probability Prediction\nLogistic Regression — scikit-learn AI service"]
 ```
 
-**Total LLM calls per full RFP analysis: ~4–6 calls** (down from 30–40 sequential calls)
+> **Total LLM calls per full RFP analysis: ~4–6 calls** (down from 30–40 sequential calls)
 
 ---
 
